@@ -1,21 +1,51 @@
 import numpy as np
 import copy
 import random
+import math 
 
 def set_length_location(min_x=-100,BLprev=0,bodyw=0,bodyh=0,zloc=0,yloc=0):
     err=False
+    flag=False
+    count=0
     while err==False:
         body_length=get_gauss_rand(12.,4.,6.,14.)/39.37
-        prop_radius=get_gauss_rand(8.,4.,2.,12.)/39.37
-        prop_location=[get_gauss_rand(0,5.,-body_length,body_length)/39.37,bodyw+0.1,-bodyh/2+0.05]
+
+        prop_radius=get_gauss_rand(8.,4.,4.,10.)/39.37
+
+        prop_location=[get_gauss_rand(0,5.,-body_length/2,body_length/2)/39.37,bodyw+0.15,-bodyh/2+0.05]
         joint_location=[body_length/2+1/39.37,0,get_gauss_rand(0.,5,-5,5)/39.37]
         R0=BLprev/2+2/39.37+body_length/2
         overlap=R0+prop_location[0]-prop_radius
-        if overlap>min_x:
+        if overlap>1.3*min_x:
             err=True
+        if count>1000:
+            flag=True
+            err=True
+        count+=1
     min_x=prop_location[0]+prop_radius
     BLprev=body_length
-    return body_length, prop_radius, prop_location, joint_location, BLprev, min_x
+    
+    return body_length, prop_radius, prop_location, joint_location, BLprev, min_x, flag
+
+def set_tracks(bodyw=0,bodyh=0,zloc=0,yloc=0):
+    err=False
+    count=0
+    flag=False
+    while err==False:    
+        body_length=get_gauss_rand(12.,4.,6.,14.)/39.37
+        prop_location=[get_gauss_rand(0,5.,-body_length,body_length)/39.37,bodyw+0.15,-bodyh/2+0.05]
+        prop_location2=[get_gauss_rand(0,5.,-body_length,body_length)/39.37,bodyw+0.15,-bodyh/2+0.05]
+        joint_location=[body_length/2+1/39.37,0,get_gauss_rand(0.,5,-5,5)/39.37]
+        prop_radius=get_gauss_rand(8.,4.,2.,12.)/39.37
+        body_length2=get_gauss_rand(12.,4.,6.,14.)/39.37
+        wheel_base=joint_location[0]+body_length2/2+prop_location2[0]-prop_location[0]
+        if wheel_base>2.35*prop_radius:
+            err=True
+        if count>1000:
+            flag=True
+            err=True
+        count+=1
+    return body_length, body_length2, prop_location, prop_location2, joint_location, prop_radius, flag
 
 def get_gauss_rand(in_mean,in_std=0,l_lim=-1000000,u_lim=1000000):
     outp = l_lim-1
@@ -39,7 +69,8 @@ class graph_gens():
 
         prev_tracked=False      # set that the previous mechanism wasn't a track
         current_node=0          # current graph node
-        min_x=10                 # where there will be overlap in wheels
+        min_x=-10               # where there will be overlap in wheels
+        BLprev=0
         prop_types=['none','wheel','planet wheel','track']
 
         for i in range(body_num):
@@ -56,45 +87,69 @@ class graph_gens():
 
             ## Determine if the next joint is active ##
             if random.randint(0, 1)==1:
-                joint['active']=[get_gauss_rand(100,25,50,200),get_gauss_rand(75,50,25,200)]
+                joint['active']=[get_gauss_rand(100,25,50,200),get_gauss_rand(20,10,5,30)]
             else:
-                joint['active']=[]
+                joint['active']=[500,5]
             joint['parents']=current_node
 
+            ## Joint orientation ##
+            joint['orientation']=[0,0,0]
+            joint['orientation'][random.randint(0, 2)]=math.sin(math.pi/4)
 
             ## Determine what type of propulsion ##
-            if prev_tracked==True:  # if the previous body started a track mechanism
+            if prev_tracked==True:  
                 propulsors["type"]='track'
                 prev_tracked=False
-                self.num_propulsors+=1
+                body["length"]=copy.copy(body_length2)
+                propulsors["radius"]=copy.copy(prop_radius)
+                joint["location"]=[body["length"]/2+1/39.37,0,get_gauss_rand(0.,5,-5,5)/39.37]
+                propulsors["location"]=copy.copy(prop_location2)
+                min_x=copy.copy(prop_location2[0])+copy.copy(prop_radius)
+                BLprev=copy.copy(body_length2)
             else:
                 ## Determine what type of mechanism is next [0=none, 1=wheel, 2=planet wheel, 3=track] ##
-                if i==body_num:
+                if i==body_num-1:
                     propulsors["type"]=prop_types[random.randint(0, 2)]
                 elif i==0:
-                    propulsors["type"]=prop_types[3]#random.randint(1, 3)]
+                    propulsors["type"]=prop_types[random.randint(1, 3)]
                 else:
                     propulsors["type"]=prop_types[random.randint(0, 3)]
-                
-                if propulsors["type"]=='track':
-                    prev_tracked=True
             
-            body["length"], propulsors["radius"], propulsors["location"], joint["location"], BLprev, min_x = set_length_location(min_x=-100,BLprev=0,bodyw=body["width"],bodyh=body["height"],zloc=0,yloc=0)
+            
+                if propulsors["type"]!='track':
+                    body["length"], propulsors["radius"], propulsors["location"], joint["location"], BLprev, min_x, flag = set_length_location(min_x=min_x,BLprev=BLprev,bodyw=body["width"],bodyh=body["height"],zloc=0,yloc=0)
+                else:
+                    body["length"], body_length2, propulsors["location"], prop_location2, joint["location"], prop_radius, flag = set_tracks(bodyw=body["width"],bodyh=body["height"],zloc=0,yloc=0)
+                    propulsors["radius"]=copy.copy(prop_radius)
+                    prev_tracked=True
 
-            if propulsors["type"]==0:
+            if propulsors["type"]==prop_types[0]:
                 body["childern"]=[current_node+1]
-                self.nodes.append(copy.deepcopy(body))
-                self.nodes.append(copy.deepcopy(joint))
+                self.nodes.append(copy.copy(body))
+                self.nodes.append(copy.copy(joint))
                 current_node+=2
+            # elif propulsors["type"]==prop_types[3]:
+            #     body["childern"]=[current_node+1,current_node+2]
+            #     propulsors["parents"]=current_node
+            #     self.nodes.append(copy.deepcopy(body))
+            #     self.nodes.append(copy.deepcopy(propulsors))      
+            #     self.nodes.append(copy.deepcopy(joint))  
+            #     self.num_propulsors+=1              
+            #     current_node+=3
             else:
+                # if i==body_num-1:
+                #     body["childern"]=[current_node+1]
+                # else:
                 body["childern"]=[current_node+1,current_node+2]
                 propulsors["parents"]=current_node
-                self.nodes.append(copy.deepcopy(body))
-                self.nodes.append(copy.deepcopy(propulsors))      
-                self.nodes.append(copy.deepcopy(joint))  
+                self.nodes.append(copy.copy(body))
+                self.nodes.append(copy.copy(propulsors))      
+                self.nodes.append(copy.copy(joint))  
                 self.num_propulsors+=1              
                 current_node+=3
-        return self.nodes
+            if flag==True:
+                self.num_propulsors=-10
+        return self.num_propulsors, self.nodes
             
 con=graph_gens()
 con.generate_concept()

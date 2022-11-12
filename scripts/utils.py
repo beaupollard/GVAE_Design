@@ -91,8 +91,8 @@ def generate_tracks(sim,radius,wheel_base,current_body,jlocation=[0,0,0]):
 
     sim.setObjectParent(track_links[0],current_body,0)
     sim.setObjectParent(Ltrack_links[0],current_body,0)
-
-    return Rj0, Rj1, Lwheels[0], Lwheels[1]
+    set_joint_mode(sim,[Rj0,Lwheels[0]],j_spring=[],jtype='velocity')
+    return Rj0, Lwheels[0], Rj1, Lwheels[1]
 
 def build_links(sim,link_length,link_height,joint_length):
     link_dim=[[link_length,0.135,link_height],[0.015,0.135,0.025],[0.02,0.014,0.0255]]
@@ -197,7 +197,7 @@ def build_wheels(sim,radius,current_body,jlocation=[0,0,0],width=0.075):
     sim.setObjectPosition(j0,current_body,[jlocation[0],jlocation[1]/2,jlocation[2]])
     sim.setObjectParent(left_side[0],current_body,0)
     sim.setObjectPosition(left_side[0],current_body,[jlocation[0],-jlocation[1]/2,jlocation[2]])   
-
+    set_joint_mode(sim,[j0,left_side[0]],j_spring=[],jtype='velocity')
     ## Set the wheels relative to the body tomorrow ##
     return j0, left_side[0]
 
@@ -255,19 +255,20 @@ def build_planet_wheels(sim,radius,current_body,jlocation=[0,0,0],joint_type='fi
     sim.setObjectPosition(j0,current_body,[jlocation[0],jlocation[1]/2,jlocation[2]])
     sim.setObjectParent(lw[1],current_body,0)
     sim.setObjectPosition(lw[1],current_body,[jlocation[0],-jlocation[1]/2,jlocation[2]])
-
+    set_joint_mode(sim,[j0,lw[1]],j_spring=[],jtype='velocity')
     return j0, lw[1]
 
 def set_joint_mode(sim,j0,j_spring=[],jtype='force'):
     for i in j0:
         if jtype=='force':
             sim.setObjectInt32Param(i,sim.jointintparam_dynctrlmode,sim.jointdynctrl_force)    
+        elif jtype=='velocity':
+            sim.setObjectInt32Param(i,sim.jointintparam_dynctrlmode,sim.jointdynctrl_velocity)  
         else:
             sim.setObjectInt32Param(i,sim.jointintparam_dynctrlmode,sim.jointdynctrl_spring)
             sim.setObjectFloatParam(i,sim.jointfloatparam_kc_k,j_spring[0])
             sim.setObjectFloatParam(i,sim.jointfloatparam_kc_c,j_spring[1])
             
-
 def set_body_joints(sim,location,parent,spring_coeff=[],orientation=[0,0,0]):
     joint_link=sim.createJoint(sim.joint_revolute_subtype,sim.jointmode_dynamic,0,[0.055,0.015])
     set_joint_mode(sim,[joint_link],j_spring=spring_coeff,jtype='spring')
@@ -278,7 +279,7 @@ def set_body_joints(sim,location,parent,spring_coeff=[],orientation=[0,0,0]):
     return joint_link
 
 def build_vehicles(sim,nodes):
-    vrep_nodes=[]
+    lead_bodyid=0
     props=[]
     joint_location=[0,0,0]
     prev_track=False
@@ -287,6 +288,7 @@ def build_vehicles(sim,nodes):
     while err==False:
         if i==0:
             current_body=generate_body(sim,[nodes[i]['length'],nodes[i]['width'],nodes[i]['height']])
+            lead_bodyid=copy.copy(current_body)
             sim.setObjectPosition(current_body,current_body,[0,0,0.5])
         else:
             current_body=generate_body(sim,[nodes[i]['length'],nodes[i]['width'],nodes[i]['height']])
@@ -299,18 +301,22 @@ def build_vehicles(sim,nodes):
         if len(nodes[i]['childern'])==2:
             if nodes[i+1]['type']=='planet wheel':
                 current_props=build_planet_wheels(sim,nodes[i+1]['radius'],current_body,nodes[i+1]['location'])
+                props.append(current_props[:2])
             elif nodes[i+1]['type']=='wheel':
-                current_props=build_wheels(sim,nodes[i+1]['radius'],current_body,nodes[i+1]['location'])      
+                current_props=build_wheels(sim,nodes[i+1]['radius'],current_body,nodes[i+1]['location'])  
+                props.append(current_props[:2])    
             else:
                 if prev_track==False:
                     wheel_base=abs((nodes[i+2]['location'][0]+1/39.37+nodes[i+3]['length']/2+nodes[i+4]['location'][0])-nodes[i+1]['location'][0])
                     current_props=generate_tracks(sim,nodes[i+1]['radius'],wheel_base,current_body,nodes[i+1]['location'])
+                    props.append(current_props[:2])
                     prev_track=True
                 else:
                     sim.setObjectParent(current_props[0],current_body,0)
-                    sim.setObjectParent(current_props[2],current_body,0)
+                    sim.setObjectParent(current_props[1],current_body,0)
                     prev_track=False
             joint_node=copy.copy(nodes[i+2])
+            
             i+=3
         else:
             joint_node=copy.copy(nodes[i+1])
@@ -326,3 +332,4 @@ def build_vehicles(sim,nodes):
         
         # vrep_nodes.append(generate_body(sim,[nod['length'],nod['width'],nod['height']]))
 
+    return props, lead_bodyid

@@ -4,6 +4,7 @@ import utils
 import numpy as np
 import math
 from graph_generator import graph_gens
+from sim_ctrl import main_run
 
 ## Get ID of open CoppeliaSim scene ##
 client = RemoteAPIClient()
@@ -17,8 +18,8 @@ for i in range(6):
         con=graph_gens()
         num_props, nodes=con.generate_concept()
     node_rec.append(nodes)
-    utils.build_vehicles(sim,nodes)
-    
+    joints, body_id = utils.build_vehicles(sim,nodes)
+    main_run(np.array(joints).flatten(),body_id,nodes)
     time.sleep(1)
     sim.closeScene()
 # utils.build_planet_wheels(sim,0.25)

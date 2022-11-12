@@ -18,6 +18,7 @@ for i in range(6):
         num_props, nodes=con.generate_concept()
     node_rec.append(nodes)
     utils.build_vehicles(sim,nodes)
+    
     time.sleep(1)
     sim.closeScene()
 # utils.build_planet_wheels(sim,0.25)

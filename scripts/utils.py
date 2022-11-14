@@ -3,6 +3,7 @@ import math
 import copy
 from scipy.spatial.transform import Rotation as R
 
+
 def get_gauss_rand(in_mean,in_std=0,l_lim=-1000000,u_lim=1000000):
     outp = l_lim-1
     while outp<l_lim or outp>u_lim:
@@ -10,12 +11,13 @@ def get_gauss_rand(in_mean,in_std=0,l_lim=-1000000,u_lim=1000000):
     return outp
 
 def generate_body(sim,body_size=[0.3,0.15,0.2]):
-    density=50 #lbs/ft^3
+    density=50*16.0184634 #lbs/ft^3
     volume=body_size[0]*body_size[1]*(body_size[2]+2/39.37)
     b0=sim.createPrimitiveShape(sim.primitiveshape_cuboid,body_size)
-    sim.setShapeMass(b0,volume*density)
     sim.setObjectInt32Param(b0,sim.shapeintparam_static,0)
-    sim.setObjectInt32Param(b0,sim.shapeintparam_respondable,1)
+    sim.setObjectInt32Param(b0,sim.shapeintparam_respondable,1)    
+    sim.setShapeMass(b0,volume*density)
+
     return b0
 
 def generate_tracks(sim,radius,wheel_base,current_body,jlocation=[0,0,0]):
@@ -333,3 +335,54 @@ def build_vehicles(sim,nodes):
         # vrep_nodes.append(generate_body(sim,[nod['length'],nod['width'],nod['height']]))
 
     return props, lead_bodyid
+
+def build_steps(sim,num_steps=10,step_height=6.5/39.37,slope=30):
+    b0=[]
+    for i in range(num_steps):
+        b0.append(sim.createPrimitiveShape(sim.primitiveshape_cuboid,[1.,2.,step_height]))
+        l=step_height/math.tan(slope*math.pi/180)
+        sim.setObjectPosition(b0[-1],b0[-1],[-l*i-1.0,0,step_height/2+step_height*i])
+
+    final_pos=[(-l*(i+1)-0.5),step_height*i]
+    Rw=sim.groupShapes(b0)
+    # sim.setObjectInt32Param(Rw,sim.shapeintparam_static,0)
+    sim.setObjectInt32Param(Rw,sim.shapeintparam_respondable,1)
+    return final_pos
+    
+def convert2tensor(nodes):
+    ## Save as a datalist ##
+    # data=[]
+    # edge_attribute=torch.tensor
+    # edge_index=torch.tensor
+    # x=torch.tensor
+    # count=0
+    type=['wheel','planet wheel','track']
+    x=[]
+    edge_index=[]
+    for i, nod in enumerate(nodes):
+        if nod['name']=='body':
+            x.append([nod['length'],nod['width'],nod['height'],0.,0.])
+            for j in (nod['childern']):
+                edge_index.append([i,j])
+            if i>0:
+                edge_index.append([nod['parents'],i])
+        elif nod['name']=='prop':
+            for j, prop_type in enumerate(type):
+                if prop_type==nod['type']:
+                    prop_index=j 
+            x.append([j,nod['radius'],nod['location'][0],nod['location'][1],nod['location'][2]])
+        else:
+            for j, ori in enumerate(nod['orientation']):
+                if ori!=0:
+                    ori_index=j             
+            x.append([nod['active'][0],nod['active'][0],ori_index,nod['location'][0],nod['location'][2]])
+        
+    return x, edge_index
+    #     x=torch.tensor([[x0[i],x1[i],a0[i]],[x2[i],x3[i],a1[i]],[x4[i],x5[i],a2[i]]],dtype=torch.float)
+    #     y=torch.tensor([[x0[i+1],x1[i+1],a0[i+1]],[x2[i+1],x3[i+1],a1[i+1]],[x4[i+1],x5[i+1],a2[i+1]]],dtype=torch.float)
+    #     edge_index=torch.tensor([[0,1,1,2],[1,0,2,1]])
+    #     edge_attribute=torch.tensor([F[i]])    
+
+    #     data.append((Data(x=x,edge_index=edge_index,y=y,edge_attribute=edge_attribute)))
+
+    # torch.save(data,os.path.join('./',f'data_{out_data}.pt'))    

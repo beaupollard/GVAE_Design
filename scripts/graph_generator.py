@@ -16,7 +16,7 @@ def set_length_location(min_x=-100,BLprev=0,bodyw=0,bodyh=0,zloc=0,yloc=0):
         joint_location=[body_length/2+1/39.37,0,get_gauss_rand(0.,5,-5,5)/39.37]
         R0=BLprev/2+2/39.37+body_length/2
         overlap=R0+prop_location[0]-prop_radius
-        if overlap>1.3*min_x:
+        if overlap>1.3*min_x and body_length/2>prop_radius:
             err=True
         if count>1000:
             flag=True
@@ -128,18 +128,9 @@ class graph_gens():
                 self.nodes.append(copy.copy(body))
                 self.nodes.append(copy.copy(joint))
                 current_node+=2
-            # elif propulsors["type"]==prop_types[3]:
-            #     body["childern"]=[current_node+1,current_node+2]
-            #     propulsors["parents"]=current_node
-            #     self.nodes.append(copy.deepcopy(body))
-            #     self.nodes.append(copy.deepcopy(propulsors))      
-            #     self.nodes.append(copy.deepcopy(joint))  
-            #     self.num_propulsors+=1              
-            #     current_node+=3
             else:
-                # if i==body_num-1:
-                #     body["childern"]=[current_node+1]
-                # else:
+                if i==0:
+                    propulsors["location"][0]=-body['length']/2+propulsors['radius']*0.9
                 body["childern"]=[current_node+1,current_node+2]
                 propulsors["parents"]=current_node
                 self.nodes.append(copy.copy(body))

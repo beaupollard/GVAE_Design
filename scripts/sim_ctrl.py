@@ -5,10 +5,13 @@ import math
 
 
 class run_sim():
-    def __init__(self,motor_ids,body_id,nodes):
+    def __init__(self,motor_ids,body_id,nodes,jj):
         self.motor_ids=motor_ids
         self.body_id=body_id
+        # if jj==0:
         self.clientID=sim.simxStart('127.0.0.1',19999,True,True,5000,5) # Connect to CoppeliaSim
+        # else:
+        #     self.clientID=jj
         prev_track=False
         self.radius=[]
         self.velo=15.
@@ -49,22 +52,47 @@ class run_sim():
             rot_velo=(self.velo/60/self.radius[i])+motor_direction*err
             sim.simxSetJointTargetVelocity(self.clientID,motor,rot_velo,sim.simx_opmode_streaming)
 
-def main_run(motor_ids,body_id,nodes):
-    sim_scene=run_sim(motor_ids,body_id,nodes)
+    def end_sim(self,final_pos,time):
+        err,pin=sim.simxGetObjectPosition(self.clientID,self.body_id,-1,sim.simx_opmode_buffer)
+        if pin[0]<final_pos[0] and pin[2]>final_pos[1]:
+            success=True
+        else:
+            success=False
+        
+        return success
+
+        # for i in self.motor_ids:
+        #     tor.append(sim.simxGetJointForce(clientID,i,sim.simx_opmode_buffer)[-1])
+        # torque.append(tor)
+
+def main_run(motor_ids,body_id,nodes,final_pos,client_id,simapi):
+
+    sim_scene=run_sim(motor_ids,body_id,nodes,client_id)
     sim_scene.init_vrep_calls()
     sim_scene.set_max_torque(max_torque=150)
     sim_scene.set_velocity()
 
     ## Set simulation to run synchronously ##
-    sim.simxSynchronous(sim_scene.clientID,True)
+    (sim.simxSynchronous(sim_scene.clientID,True))
 
     ## Start a simulation ##
     sim.simxStartSimulation(sim_scene.clientID,sim.simx_opmode_oneshot)
 
     end_sim_var=False
+    count=0
     ## Run simulation ##
     while end_sim_var==False:
         sim.simxSynchronousTrigger(sim_scene.clientID)
         sim_scene.steering()
-        # end_sim_var=end_sim()
+        success=sim_scene.end_sim(final_pos,count*0.05)
+        if success==True or count*0.05>30.:
+            end_sim_var=True
+        count+=1
+    err0=sim.simxStopSimulation(sim_scene.clientID,sim.simx_opmode_oneshot)
+    while simapi.getSimulationState()!=simapi.simulation_stopped:
+        print("Simulation not ending")
+    err1=sim.simxFinish(sim_scene.clientID) # Connect to CoppeliaSim
+    # print(err0,err1)
+    return success, count*0.05, sim_scene.clientID
 
+# main_run(motor_ids=[0],body_id=[1],nodes=0,final_pos=[-10,0,2],client_id)

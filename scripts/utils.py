@@ -370,7 +370,7 @@ def convert2tensor(nodes):
             for j, prop_type in enumerate(type):
                 if prop_type==nod['type']:
                     prop_index=j 
-            x.append([j,nod['radius'],nod['location'][0],nod['location'][1],nod['location'][2]])
+            x.append([prop_index,nod['radius'],nod['location'][0],nod['location'][1],nod['location'][2]])
         else:
             for j, ori in enumerate(nod['orientation']):
                 if ori!=0:

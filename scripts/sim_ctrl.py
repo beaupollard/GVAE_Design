@@ -90,7 +90,8 @@ def main_run(motor_ids,body_id,nodes,final_pos,client_id,simapi):
         count+=1
     err0=sim.simxStopSimulation(sim_scene.clientID,sim.simx_opmode_oneshot)
     while simapi.getSimulationState()!=simapi.simulation_stopped:
-        print("Simulation not ending")
+        pass
+        # print("Simulation not ending")
     err1=sim.simxFinish(sim_scene.clientID) # Connect to CoppeliaSim
     # print(err0,err1)
     return success, count*0.05, sim_scene.clientID

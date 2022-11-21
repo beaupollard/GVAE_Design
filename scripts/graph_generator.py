@@ -93,8 +93,8 @@ class graph_gens():
             joint['parents']=current_node
 
             ## Joint orientation ##
-            joint['orientation']=[0,0,0]
-            joint['orientation'][random.randint(0, 2)]=math.sin(math.pi/4)
+            joint['orientation']=[0,math.sin(math.pi/4),0]
+            # joint['orientation'][random.randint(0, 2)]=math.sin(math.pi/4)
 
             ## Determine what type of propulsion ##
             if prev_tracked==True:  

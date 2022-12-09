@@ -10,7 +10,7 @@ import numpy as np
 import json
 
 def save_results(x_rec,edge_rec,sim_results):
-    with open('nodes5.txt', 'w') as convert_file:
+    with open('nodes8.txt', 'w') as convert_file:
         for i in x_rec:
             for j in i:
 
@@ -19,7 +19,7 @@ def save_results(x_rec,edge_rec,sim_results):
             convert_file.write("\n")
             convert_file.write("\n")
 
-    with open('edges5.txt', 'w') as convert_file:
+    with open('edges8.txt', 'w') as convert_file:
         for i in edge_rec:
             for j in i:
 
@@ -28,7 +28,7 @@ def save_results(x_rec,edge_rec,sim_results):
             convert_file.write("\n")
             convert_file.write("\n")
 
-    with open('results5.txt', 'w') as convert_file:
+    with open('results8.txt', 'w') as convert_file:
         for i in sim_results:
             convert_file.write(json.dumps(i))
             convert_file.write("\n")

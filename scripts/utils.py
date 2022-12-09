@@ -347,6 +347,7 @@ def build_steps(sim,num_steps=10,step_height=6.5/39.37,slope=30):
     Rw=sim.groupShapes(b0)
     # sim.setObjectInt32Param(Rw,sim.shapeintparam_static,0)
     sim.setObjectInt32Param(Rw,sim.shapeintparam_respondable,1)
+    sim.cameraFitToView(0)
     return final_pos
     
 def convert2tensor(nodes):
@@ -375,7 +376,7 @@ def convert2tensor(nodes):
             for j, ori in enumerate(nod['orientation']):
                 if ori!=0:
                     ori_index=j             
-            x.append([nod['active'][0],nod['active'][0],ori_index,nod['location'][0],nod['location'][2]])
+            x.append([nod['active'][0],nod['active'][1],ori_index,nod['location'][0],nod['location'][2]])
         
     return x, edge_index
     #     x=torch.tensor([[x0[i],x1[i],a0[i]],[x2[i],x3[i],a1[i]],[x4[i],x5[i],a2[i]]],dtype=torch.float)

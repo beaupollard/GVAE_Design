@@ -89,12 +89,12 @@ class graph_gens():
             if random.randint(0, 1)==1:
                 joint['active']=[get_gauss_rand(100,25,50,200),get_gauss_rand(20,10,5,30)]
             else:
-                joint['active']=[500,5]
+                joint['active']=[1000,5]
             joint['parents']=current_node
 
             ## Joint orientation ##
-            joint['orientation']=[0,math.sin(math.pi/4),0]
-            # joint['orientation'][random.randint(0, 2)]=math.sin(math.pi/4)
+            # joint['orientation']=[math.sin(math.pi/4),0,0]
+            joint['orientation'][random.randint(0, 2)]=math.sin(math.pi/4)
 
             ## Determine what type of propulsion ##
             if prev_tracked==True:  

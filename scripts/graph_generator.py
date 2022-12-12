@@ -36,7 +36,7 @@ def set_tracks(bodyw=0,bodyh=0,zloc=0,yloc=0):
         prop_location=[get_gauss_rand(0,5.,-body_length,body_length)/39.37,bodyw+0.15,-bodyh/2+0.05]
         prop_location2=[get_gauss_rand(0,5.,-body_length,body_length)/39.37,bodyw+0.15,-bodyh/2+0.05]
         joint_location=[body_length/2+1/39.37,0,get_gauss_rand(0.,5,-5,5)/39.37]
-        prop_radius=get_gauss_rand(8.,4.,2.,12.)/39.37
+        prop_radius=get_gauss_rand(8.,4.,3.,10.)/39.37
         body_length2=get_gauss_rand(12.,4.,6.,14.)/39.37
         wheel_base=joint_location[0]+body_length2/2+prop_location2[0]-prop_location[0]
         if wheel_base>2.35*prop_radius:
@@ -75,9 +75,9 @@ class graph_gens():
 
         for i in range(body_num):
             ## Initialize the node types ##
-            body=self.body_nodes
-            joint=self.joint_nodes
-            propulsors=self.prop_nodes            
+            body=copy.copy(self.body_nodes)
+            joint=copy.copy(self.joint_nodes)
+            propulsors=copy.copy(self.prop_nodes )           
 
             ## Set the body node parent (previous joint) ##
             if i==0:
@@ -93,7 +93,7 @@ class graph_gens():
             joint['parents']=current_node
 
             ## Joint orientation ##
-            # joint['orientation']=[math.sin(math.pi/4),0,0]
+            joint['orientation']=[0.,0.,0.]
             joint['orientation'][random.randint(0, 2)]=math.sin(math.pi/4)
 
             ## Determine what type of propulsion ##

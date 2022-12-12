@@ -15,9 +15,11 @@ def generate_body(sim,body_size=[0.3,0.15,0.2]):
     volume=body_size[0]*body_size[1]*(body_size[2]+2/39.37)
     b0=sim.createPrimitiveShape(sim.primitiveshape_cuboid,body_size)
     sim.setObjectInt32Param(b0,sim.shapeintparam_static,0)
-    sim.setObjectInt32Param(b0,sim.shapeintparam_respondable,1)    
-    sim.setShapeMass(b0,volume*density)
-
+    sim.setObjectInt32Param(b0,sim.shapeintparam_respondable,1)
+    b1=sim.createPrimitiveShape(sim.primitiveshape_spheroid,[0.05,0.05,0.05])
+    sim.setShapeMass(b1,volume*density)
+    sim.setObjectParent(b1,b0,True)
+    sim.setObjectPosition(b1,b0,[0,0,-0.15])
     return b0
 
 def generate_tracks(sim,radius,wheel_base,current_body,jlocation=[0,0,0]):
@@ -64,7 +66,7 @@ def generate_tracks(sim,radius,wheel_base,current_body,jlocation=[0,0,0]):
     
     ## Determine how many links are needed to surround the drives ##
     linkandjoint_width=2*joint_length
-    num_tracks_circ=math.ceil(math.pi*(radius+link_height)/linkandjoint_width)
+    num_tracks_circ=math.floor(math.pi*(radius+link_height)/linkandjoint_width)
     theta=math.pi/num_tracks_circ
     for i in range(num_tracks_circ):
         sim.setObjectQuaternion(track_joints[i],track_joints[i],[0,0,math.sin(theta/2),math.cos(theta/2)])
@@ -74,13 +76,13 @@ def generate_tracks(sim,radius,wheel_base,current_body,jlocation=[0,0,0]):
         sim.setObjectQuaternion(track_joints[i+j],track_joints[i+j],[0,0,math.sin(theta/2),math.cos(theta/2)])
     
     sim.setObjectParent(dummy_ids[-1],track_joints[-1],True)
-    Rj0, Rj1, Rw0, Rw1, wheel_base = build_track_wheels(sim,track_links[0],track_links[i],num_tracks_circ)
+    Rj0, Rj1, Rw0, Rw1, wheel_base, radius = build_track_wheels(sim,track_links[0],track_links[i],num_tracks_circ,radius)
     
     Ltrack_links=sim.copyPasteObjects(track_links+track_joints+dummy_ids,0)
     Lwheels = sim.copyPasteObjects([Rj0,Rj1,Rw0,Rw1],0)
     sim.setObjectParent(Rj1,current_body,0)
 
-    ## Set front sprocket as parent jsut to get things into position
+    ## Set front sprocket as parent just to get things into position
     sim.setObjectParent(Rj0,Rj1,0)
     sim.setObjectParent(track_links[0],Rj1,0)
     sim.setObjectParent(Lwheels[0],Lwheels[1],0)
@@ -94,7 +96,22 @@ def generate_tracks(sim,radius,wheel_base,current_body,jlocation=[0,0,0]):
     sim.setObjectParent(track_links[0],current_body,0)
     sim.setObjectParent(Ltrack_links[0],current_body,0)
     set_joint_mode(sim,[Rj0,Lwheels[0]],j_spring=[],jtype='velocity')
-    return Rj0, Lwheels[0], Rj1, Lwheels[1]
+
+    ## Build track support ##
+    # support_size=[abs(wheel_base)-2.05*radius,0.015,0.025]
+    # s0=sim.createPrimitiveShape(sim.primitiveshape_cuboid,support_size)
+    # sim.setObjectInt32Param(s0,sim.shapeintparam_respondable,1)   
+    # sim.setObjectParent(s0,current_body,0)
+    # sim.setObjectPosition(s0,-1,[(sim.getObjectPosition(Rj0,-1)[0]+sim.getObjectPosition(Rj1,-1)[0])/2,sim.getObjectPosition(Rj0,-1)[1]+0.025,sim.getObjectPosition(Rj0,-1)[2]-radius+support_size[2]/2.])
+    # s1 = sim.copyPasteObjects([s0],0)
+    # sim.setObjectPosition(s1[0],-1,[(sim.getObjectPosition(Rj0,-1)[0]+sim.getObjectPosition(Rj1,-1)[0])/2,sim.getObjectPosition(Rj0,-1)[1]-0.025,sim.getObjectPosition(Rj0,-1)[2]-radius+support_size[2]/2.])
+    # s2 = sim.copyPasteObjects([s0,s1[0]],0)
+    # sim.setObjectPosition(s2[0],-1,[sim.getObjectPosition(s0,-1)[0],-sim.getObjectPosition(s0,-1)[1],sim.getObjectPosition(s0,-1)[2]])
+    # sim.setObjectPosition(s2[1],-1,[sim.getObjectPosition(s1[0],-1)[0],-sim.getObjectPosition(s1[0],-1)[1],sim.getObjectPosition(s1[0],-1)[2]])
+    # sim.setObjectParent(s1[0],current_body,0)
+    # sim.setObjectParent(s2[0],current_body,0)
+    # sim.setObjectParent(s2[1],current_body,0)
+    return Rj0, Lwheels[0], Rj1, Lwheels[1], radius
 
 def build_links(sim,link_length,link_height,joint_length):
     link_dim=[[link_length,0.135,link_height],[0.015,0.135,0.025],[0.02,0.014,0.0255]]
@@ -126,7 +143,7 @@ def build_links(sim,link_length,link_height,joint_length):
     sim.setObjectInt32Param(track_link,sim.shapeintparam_respondable,1)    
     return track_link, joint_link, dummy
 
-def build_track_wheels(sim,t0,t1,num_links_circ):
+def build_track_wheels(sim,t0,t1,num_links_circ,radius):
     l0=sim.getObjectPosition(t0,sim.handle_world)
     l1=sim.getObjectPosition(t1,sim.handle_world)
     radius=abs(l0[2]-l1[2])/2
@@ -163,7 +180,7 @@ def build_track_wheels(sim,t0,t1,num_links_circ):
     j1=wt2[0]
     wt1=wt2[1]
     sim.setObjectPosition(j1,j0,[l1[0]-l0[0],0,0])
-    return j0, j1, wt, wt1, l1[0]-l0[0]
+    return j0, j1, wt, wt1, l1[0]-l0[0], radius
 
 def build_wheels(sim,radius,current_body,jlocation=[0,0,0],width=0.075):
     tread_height=1/39.37
@@ -333,8 +350,8 @@ def build_vehicles(sim,nodes):
             # JRot=R.from_quat([-joint_node['orientation'][0],-joint_node['orientation'][1],-joint_node['orientation'][2],joint_node['orientation'][3]])    
         
         # vrep_nodes.append(generate_body(sim,[nod['length'],nod['width'],nod['height']]))
-
-    return props, lead_bodyid
+    x_current, edge_current = convert2tensor(nodes)
+    return props, lead_bodyid, x_current, edge_current
 
 def build_steps(sim,num_steps=10,step_height=6.5/39.37,slope=30):
     b0=[]
@@ -379,11 +396,3 @@ def convert2tensor(nodes):
             x.append([nod['active'][0],nod['active'][1],ori_index,nod['location'][0],nod['location'][2]])
         
     return x, edge_index
-    #     x=torch.tensor([[x0[i],x1[i],a0[i]],[x2[i],x3[i],a1[i]],[x4[i],x5[i],a2[i]]],dtype=torch.float)
-    #     y=torch.tensor([[x0[i+1],x1[i+1],a0[i+1]],[x2[i+1],x3[i+1],a1[i+1]],[x4[i+1],x5[i+1],a2[i+1]]],dtype=torch.float)
-    #     edge_index=torch.tensor([[0,1,1,2],[1,0,2,1]])
-    #     edge_attribute=torch.tensor([F[i]])    
-
-    #     data.append((Data(x=x,edge_index=edge_index,y=y,edge_attribute=edge_attribute)))
-
-    # torch.save(data,os.path.join('./',f'data_{out_data}.pt'))    

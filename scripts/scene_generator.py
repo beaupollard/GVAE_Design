@@ -51,9 +51,9 @@ while True:
     while num_props<2:
         con=graph_gens()
         num_props, nodes=con.generate_concept()
-    x_current, edge_current = utils.convert2tensor(nodes)
+    # x_current, edge_current = utils.convert2tensor(nodes)
     
-    joints, body_id = utils.build_vehicles(sim,nodes)
+    joints, body_id, x_current, edge_current = utils.build_vehicles(sim,nodes)
     final_pos=utils.build_steps(sim)
     success, time, client_id = main_run(np.array(joints).flatten(),body_id,nodes,final_pos,client_id,sim)
     sim.closeScene()

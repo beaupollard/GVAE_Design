@@ -61,10 +61,10 @@ def input_vectors(edges,nodes,num_bodies=4,num_body_reals=3,num_prop_reals=4,num
                 body_count+=1
                 if len(np.where(edge[:,0]==body_id)[0])==0:
                     moveon=True
-        reals=np.hstack((np.hstack((body_reals,prop_reals)),joint_reals[(num_bodies-1)*num_joint_reals:]))
+        reals=np.hstack((np.hstack((body_reals,prop_reals)),joint_reals[:(num_bodies-1)*num_joint_reals]))
         body_ints[body_count-2]=1
-        ints=np.hstack((np.hstack((body_ints,prop_ints)),joint_ints))
-        data.append([torch.tensor(np.hstack((reals,ints)),dtype=torch.float)])
+        ints=np.hstack((np.hstack((body_ints,prop_ints)),joint_ints[:(num_bodies-1)*num_joint_ints]))
+        data.append(torch.tensor(np.hstack((reals,ints)),dtype=torch.float))
     torch.save(data,os.path.join('./','data.pt'))
     return data
             

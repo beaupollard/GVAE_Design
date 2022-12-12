@@ -14,6 +14,7 @@ class run_sim():
         #     self.clientID=jj
         prev_track=False
         self.radius=[]
+        self.torque=[]
         self.velo=15.
         for i in nodes:
             if i["name"]=='prop':
@@ -60,10 +61,11 @@ class run_sim():
             success=False
         
         return success
-
-        # for i in self.motor_ids:
-        #     tor.append(sim.simxGetJointForce(clientID,i,sim.simx_opmode_buffer)[-1])
-        # torque.append(tor)
+    def torque_rec(self):
+        tor=[]
+        for i in self.motor_ids:
+            tor.append(sim.simxGetJointForce(self.clientID,i,sim.simx_opmode_buffer)[-1])
+        self.torque.append(tor)
 
 def main_run(motor_ids,body_id,nodes,final_pos,client_id,simapi):
 
@@ -84,6 +86,7 @@ def main_run(motor_ids,body_id,nodes,final_pos,client_id,simapi):
     while end_sim_var==False:
         sim.simxSynchronousTrigger(sim_scene.clientID)
         sim_scene.steering()
+        sim_scene.torque_rec()
         success=sim_scene.end_sim(final_pos,count*0.05)
         if success==True or count*0.05>30.:
             end_sim_var=True
@@ -94,6 +97,7 @@ def main_run(motor_ids,body_id,nodes,final_pos,client_id,simapi):
         # print("Simulation not ending")
     err1=sim.simxFinish(sim_scene.clientID) # Connect to CoppeliaSim
     # print(err0,err1)
-    return success, count*0.05, sim_scene.clientID
+    sum_torque=[sum(abs(np.array(sim_scene.torque)[i,:])) for i in range(len(sim_scene.torque))]
+    return success, count*0.05, sim_scene.clientID, sum(sum_torque)/len(sum_torque), max(sum_torque)
 
 # main_run(motor_ids=[0],body_id=[1],nodes=0,final_pos=[-10,0,2],client_id)

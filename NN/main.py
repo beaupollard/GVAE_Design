@@ -21,11 +21,12 @@ miss_identification_bodies=[]
 miss_identification_props=[]
 
 model=VAE()
-model.load_state_dict(torch.load("./current_model12"))
+model.load_state_dict(torch.load("./current_model12v2"))
 counter=0
+counter2=0
 for i in range(20000):
     loss=model.training_step(train)
-    if counter==1000:
+    if counter==10000:
         test=torch.utils.data.DataLoader(d1,batch_size=len(d1), shuffle=False)
         a, b, c=model.test(test)
         correct_bodies.append(a)
@@ -37,8 +38,12 @@ for i in range(20000):
         model.scheduler.step()
         counter=0
     counter+=1
-    # print(i, loss)
+    if counter2==100:
+        
+        print(i, loss)
+        counter2=0
+    counter2+=1
     # model.scheduler.step()
 
 
-torch.save(model.state_dict(), 'current_model12v2')
+torch.save(model.state_dict(), 'current_model12v3')

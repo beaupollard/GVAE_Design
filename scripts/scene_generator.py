@@ -55,13 +55,13 @@ while True:
     
     joints, body_id, x_current, edge_current = utils.build_vehicles(sim,nodes)
     final_pos=utils.build_steps(sim)
-    success, time, client_id = main_run(np.array(joints).flatten(),body_id,nodes,final_pos,client_id,sim)
+    success, time, client_id, ave_torque, max_torque = main_run(np.array(joints).flatten(),body_id,nodes,final_pos,client_id,sim)
     sim.closeScene()
-    sim_results.append([success,time])
-    x_rec.append(copy.copy(x_current)), edge_current
+    sim_results.append([success,time,ave_torque,max_torque])
+    x_rec.append(copy.copy(x_current))#, edge_current
     edge_rec.append(copy.copy(edge_current))
     count+=1
-    if count_save==100:
+    if count_save==10:
         save_results(x_rec,edge_rec,sim_results)
         count_save=0
     else:

@@ -76,7 +76,7 @@ def main_run(motor_ids,body_id,nodes,final_pos,client_id,simapi):
 
     ## Set simulation to run synchronously ##
     (sim.simxSynchronous(sim_scene.clientID,True))
-    # sim.simxSetBoolParam(sim_scene.clientID,simapi.boolparam_display_enabled,False,sim.simx_opmode_oneshot)
+    sim.simxSetBoolParam(sim_scene.clientID,simapi.boolparam_display_enabled,False,sim.simx_opmode_oneshot)
     ## Start a simulation ##
     sim.simxStartSimulation(sim_scene.clientID,sim.simx_opmode_oneshot)
 

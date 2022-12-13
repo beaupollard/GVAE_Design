@@ -5,7 +5,7 @@ from numpy.linalg import eig
 import numpy as np
 
 class VAE(nn.Module):
-    def __init__(self, enc_out_dim=68, latent_dim=3, input_height=68,lr=2e-4,hidden_layers=64):
+    def __init__(self, enc_out_dim=68, latent_dim=3, input_height=68,lr=3e-3,hidden_layers=64):
         super(VAE, self).__init__()
         self.lr=lr
         self.count=0
@@ -29,6 +29,8 @@ class VAE(nn.Module):
         )
 
         self.decoder_to_ints = nn.Linear(latent_dim, hidden_layers)
+        self.decoder_rnn = nn.Linear(hidden_layers, hidden_layers)
+        # self.decoder_props_hidden = nn.RNN(input_size=latent_dim, hidden_size=hidden_layers,batch_first=False)
 
         self.decoder_reals = nn.Sequential(
             nn.Linear(latent_dim, hidden_layers),
@@ -44,6 +46,7 @@ class VAE(nn.Module):
             nn.Softmax()
         )
         self.decoder_prop_id0= nn.Sequential(
+            nn.Tanh(),
             nn.Linear(hidden_layers, 4),
             nn.Softmax()
         ) 
@@ -70,7 +73,7 @@ class VAE(nn.Module):
         # for the gaussian likelihood
         self.log_scale = nn.Parameter(torch.Tensor([0.0]))
         self.optimizer=self.configure_optimizers(lr=lr)
-        self.scheduler = torch.optim.lr_scheduler.ExponentialLR(self.optimizer, gamma=0.999)
+        self.scheduler = torch.optim.lr_scheduler.ExponentialLR(self.optimizer, gamma=0.9)
 
     def reparametrize(self,mu,logstd):
         if self.training:
@@ -90,12 +93,30 @@ class VAE(nn.Module):
         xhat = self.decoder_reals(z)
         zint=self.decoder_to_ints(z)
         body_id = self.decoder_body_id(zint)
+        # hidden_prop=torch.zeros_like(zint)
+        # hn=zint+self.decoder_rnn(hidden_prop)
+        # prop_id=self.decoder_prop_id0(hn)
+        # for i in range(3):
+        #     hn=zint+self.decoder_rnn(hidden_prop)
+        #     prop_id=torch.cat((prop_id,self.decoder_prop_id0(hn)),dim=1)
+
+
         prop_id = torch.cat((self.decoder_prop_id0(zint),self.decoder_prop_id1(zint),self.decoder_prop_id2(zint),self.decoder_prop_id3(zint)),dim=1)
         joint_id = torch.cat((self.decoder_joint_id0(zint),self.decoder_joint_id1(zint),self.decoder_joint_id2(zint)),dim=1)
 
         return xhat, torch.cat((body_id,prop_id,joint_id),dim=1), body_id, prop_id, joint_id
 
-
+    def ints_loss(self,inp,x_ints):
+        loss2=F.cross_entropy(x_ints[:,:3],inp[:,:3],size_average=False)
+        for j in range(4):
+            loss2+=F.cross_entropy(x_ints[:,3+j*4:3+(j+1)*4],inp[:,3+j*4:3+(j+1)*4],size_average=False)
+        # loss=torch.tensor(0,dtype=float)
+        # for i, ground_truth in enumerate(inp):
+        #     loss+=F.cross_entropy(torch.reshape(x_ints[i,:3],(1,3)),torch.reshape(ground_truth[:3],(1,3)))
+        #     for j in range(torch.argmax(x_ints[i,:3])+2):
+        #         loss+=F.cross_entropy(torch.reshape(x_ints[i,3+j*4:3+(j+1)*4],(1,4)),torch.reshape(ground_truth[3+j*4:3+(j+1)*4],(1,4)))
+        return loss2
+            # print('hey')
     def configure_optimizers(self,lr=1e-4):
         return torch.optim.Adam(self.parameters(), lr=lr)
 
@@ -155,10 +176,10 @@ class VAE(nn.Module):
 
             # decoded
             x_reals, x_ints, body_id, prop_id, joint_id= self.decoder(z)
-
-            recon_loss_reals = 0.1*F.mse_loss(x_reals,i[:,:40])
+            recon_loss_ints=self.ints_loss(i[:,40:],x_ints)
+            recon_loss_reals = 0.01*F.mse_loss(x_reals,i[:,:40])
             # recon_loss_ints = 1.*F.binary_cross_entropy_with_logits(x_ints,i[:,40:])
-            recon_loss_ints = 500.*F.cross_entropy(x_ints,i[:,40:])
+            # recon_loss_ints = 500.*F.cross_entropy(x_ints,i[:,40:])
             # recon_loss = self.gaussian_likelihood(torch.cat((x_reals,x_ints),dim=1), self.log_scale, i[0])#F.mse_loss(z,zhat)-F.mse_loss(x_hat,x)#
             kl = (self.kl_divergence(z, mu, std)*self.kl_weight).mean()
             # recon_loss_ints=self.int_loss(body_id,prop_id,joint_id,i[:,40:])
@@ -197,6 +218,7 @@ class VAE(nn.Module):
                 # decoded
                 x_reals, x_ints, _, _, _= self.decoder(z)
                 i_ints=i[:,40:]
+                # F.cross_entropy(x_ints[:,:3],i_ints[:,:3])+F.cross_entropy(x_ints[:,3:7],i_ints[:,3:7])+F.cross_entropy(x_ints[:,7:11],i_ints[:,7:11])+F.cross_entropy(x_ints[:,11:15],i_ints[:,11:15])+F.cross_entropy(x_ints[:,15:19],i_ints[:,15:19])+F.cross_entropy(x_ints[:,19:22],i_ints[:,19:22])+F.cross_entropy(x_ints[:,22:25],i_ints[:,22:25])+F.cross_entropy(x_ints[:,25:28],i_ints[:,25:28])
                 for j in range(len(i)):
                     ## Determine if body number is correct ##
                     if (torch.argmax(x_ints[j][:3])==torch.argmax(i_ints[j,:3])).detach().numpy()==True:

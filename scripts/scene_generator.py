@@ -4,13 +4,14 @@ import utils
 import numpy as np
 import math
 from graph_generator import graph_gens
-from sim_ctrl import main_run
+from sim_ctrl_new_API import main_run
 import copy
 import numpy as np
 import json
+from multiprocessing import Process
 
-def save_results(x_rec,edge_rec,sim_results):
-    with open('nodes8.txt', 'w') as convert_file:
+def save_results(x_rec,edge_rec,sim_results,num,run_num):
+    with open('nodes'+str(num)+'_'+str(run_num)+'.txt', 'w') as convert_file:
         for i in x_rec:
             for j in i:
 
@@ -19,7 +20,7 @@ def save_results(x_rec,edge_rec,sim_results):
             convert_file.write("\n")
             convert_file.write("\n")
 
-    with open('edges8.txt', 'w') as convert_file:
+    with open('edges'+str(num)+'_'+str(run_num)+'.txt', 'w') as convert_file:
         for i in edge_rec:
             for j in i:
 
@@ -28,52 +29,52 @@ def save_results(x_rec,edge_rec,sim_results):
             convert_file.write("\n")
             convert_file.write("\n")
 
-    with open('results8.txt', 'w') as convert_file:
+    with open('results'+str(num)+'_'+str(run_num)+'.txt', 'w') as convert_file:
         for i in sim_results:
             convert_file.write(json.dumps(i))
             convert_file.write("\n")
 
-## Get ID of open CoppeliaSim scene ##
-client = RemoteAPIClient()
-sim = client.getObject('sim')
-motors=[]
-sim.closeScene()
-sim.setBoolParam(sim.boolparam_display_enabled,False)
-x_rec=[]
-edge_rec=[]
-sim_results=[]
-client_id=0
-count=0
-count_save=0
-# for i in range(100):
-while True:
-    num_props=0
-    while num_props<2:
-        con=graph_gens()
-        num_props, nodes=con.generate_concept()
-    # x_current, edge_current = utils.convert2tensor(nodes)
-    
-    joints, body_id, x_current, edge_current = utils.build_vehicles(sim,nodes)
-    final_pos=utils.build_steps(sim)
-    success, time, client_id, ave_torque, max_torque = main_run(np.array(joints).flatten(),body_id,nodes,final_pos,client_id,sim)
+def run_multi(ii):
+    ## Get ID of open CoppeliaSim scene ##
+    ports = [23000,23002,23004,23006]
+    client = RemoteAPIClient(port=ports[ii])
+    sim = client.getObject('sim')
+    motors=[]
     sim.closeScene()
-    sim_results.append([success,time,ave_torque,max_torque])
-    x_rec.append(copy.copy(x_current))#, edge_current
-    edge_rec.append(copy.copy(edge_current))
-    count+=1
-    if count_save==10:
-        save_results(x_rec,edge_rec,sim_results)
-        count_save=0
-    else:
-        count_save+=1
-    print(count)
+    # sim.setBoolParam(sim.boolparam_display_enabled,False)
+    x_rec=[]
+    edge_rec=[]
+    sim_results=[]
+    client_id=0
+    count=0
+    count_save=0
+    # for i in range(100):
+    while True:
+        num_props=0
+        while num_props<2:
+            con=graph_gens()
+            num_props, nodes=con.generate_concept()
+        # x_current, edge_current = utils.convert2tensor(nodes)
+        
+        joints, body_id, x_current, edge_current, nodes = utils.build_vehicles(sim,nodes)
+        final_pos=utils.build_steps(sim)
+        success, time_sim, ave_torque, max_torque, pin = main_run(np.array(joints).flatten(),body_id,nodes,final_pos,client,sim)
+        sim.closeScene()
+        sim_results.append([success,time_sim,ave_torque,max_torque,pin[0],pin[1],pin[2]])
+        x_rec.append(copy.copy(x_current))#, edge_current
+        edge_rec.append(copy.copy(edge_current))
+        count+=1
+        if count_save==20:
+            save_results(x_rec,edge_rec,sim_results,10,ii)
+            count_save=0
+        else:
+            count_save+=1
+        print(ii, count)
 
-
-
-# print('hey')
-# utils.build_planet_wheels(sim,0.25)
-# b0=utils.generate_body(sim,[0.3,0.15,0.2])
-# rj0, rw0, lj0, lw0 = utils.build_wheels(sim,0.25)
-# rt0, rj0, rj1, lt0, lj0, lj1   = utils.generate_tracks(sim,0.15, 0.45)
-
-# track_link=(get_objects('Track_Link',iter=False)[0])
+processes = []
+for i in range(4):
+    p = Process(target=run_multi, args=(i,))
+    p.start()
+    processes.append(p)
+for p in processes:
+    p.join()

@@ -277,7 +277,7 @@ def build_planet_wheels(sim,radius,current_body,jlocation=[0,0,0],joint_type='fi
     set_joint_mode(sim,[j0,lw[1]],j_spring=[],jtype='velocity')
     return j0, lw[1]
 
-def set_joint_mode(sim,j0,j_spring=[],jtype='force'):
+def set_joint_mode(sim,j0,j_spring=[],jtype='force',max_torque=150.):
     for i in j0:
         if jtype=='force':
             sim.setObjectInt32Param(i,sim.jointintparam_dynctrlmode,sim.jointdynctrl_force)    
@@ -287,7 +287,8 @@ def set_joint_mode(sim,j0,j_spring=[],jtype='force'):
             sim.setObjectInt32Param(i,sim.jointintparam_dynctrlmode,sim.jointdynctrl_spring)
             sim.setObjectFloatParam(i,sim.jointfloatparam_kc_k,j_spring[0])
             sim.setObjectFloatParam(i,sim.jointfloatparam_kc_c,j_spring[1])
-            
+        sim.setJointTargetForce(i,max_torque)
+
 def set_body_joints(sim,location,parent,spring_coeff=[],orientation=[0,0,0]):
     joint_link=sim.createJoint(sim.joint_revolute_subtype,sim.jointmode_dynamic,0,[0.055,0.015])
     set_joint_mode(sim,[joint_link],j_spring=spring_coeff,jtype='spring')
@@ -351,7 +352,7 @@ def build_vehicles(sim,nodes):
         
         # vrep_nodes.append(generate_body(sim,[nod['length'],nod['width'],nod['height']]))
     x_current, edge_current = convert2tensor(nodes)
-    return props, lead_bodyid, x_current, edge_current
+    return props, lead_bodyid, x_current, edge_current, nodes
 
 def build_steps(sim,num_steps=10,step_height=6.5/39.37,slope=30):
     b0=[]

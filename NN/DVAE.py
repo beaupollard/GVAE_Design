@@ -5,17 +5,22 @@ from numpy.linalg import eig
 import numpy as np
 
 class VAE(nn.Module):
-    def __init__(self, enc_out_dim=68, latent_dim=3, input_height=68,lr=3e-3,hidden_layers=64):
+    def __init__(self, enc_out_dim=68, latent_dim=5, input_height=68,lr=1e-2,hidden_layers=128,dec_hidden_layers=128,performance_out=6):
         super(VAE, self).__init__()
+        self.reals_weight=0.01
+        self.ints_weight=10.
+        self.kl_weight=0.01
+        self.perf_weight=1.
+        self.dec_hidden_layers=dec_hidden_layers
         self.lr=lr
         self.count=0
-        self.kl_weight=0.01
         self.flatten = nn.Flatten()
         self.latent_dim=latent_dim
         self.body_num=4
+        self.performance_out=performance_out
         self.linear_relu_stack = nn.Sequential(
             nn.Linear(input_height, hidden_layers),
-            nn.ReLU(),
+            nn.Tanh(),
             nn.Linear(hidden_layers, hidden_layers),
             nn.ReLU()            
         )
@@ -28,46 +33,50 @@ class VAE(nn.Module):
             # nn.Tanh()
         )
 
-        self.decoder_to_ints = nn.Linear(latent_dim, hidden_layers)
+        self.decoder_to_ints = nn.Linear(latent_dim, dec_hidden_layers)
         self.decoder_rnn = nn.Linear(hidden_layers, hidden_layers)
         # self.decoder_props_hidden = nn.RNN(input_size=latent_dim, hidden_size=hidden_layers,batch_first=False)
-
+        self.performance_predict = nn.Sequential(
+            nn.Linear(latent_dim,hidden_layers),
+            nn.ReLU(),
+            nn.Linear(hidden_layers,performance_out)
+        )
         self.decoder_reals = nn.Sequential(
-            nn.Linear(latent_dim, hidden_layers),
+            nn.Linear(latent_dim, dec_hidden_layers),
             nn.Tanh(),#nn.ReLU(),
-            nn.Linear(hidden_layers, 40),
+            nn.Linear(dec_hidden_layers, 40),
         )
         self.decoder_body_id= nn.Sequential(
-            nn.Linear(hidden_layers, 3),
+            nn.Linear(dec_hidden_layers, 3),
             nn.Softmax()
         )
         self.decoder_joint_id0= nn.Sequential(
-            nn.Linear(hidden_layers, 3),
+            nn.Linear(dec_hidden_layers, 3),
             nn.Softmax()
         )
         self.decoder_prop_id0= nn.Sequential(
             nn.Tanh(),
-            nn.Linear(hidden_layers, 4),
+            nn.Linear(dec_hidden_layers, 4),
             nn.Softmax()
         ) 
         self.decoder_joint_id1= nn.Sequential(
-            nn.Linear(hidden_layers, 3),
+            nn.Linear(dec_hidden_layers, 3),
             nn.Softmax()
         )
         self.decoder_prop_id1= nn.Sequential(
-            nn.Linear(hidden_layers, 4),
+            nn.Linear(dec_hidden_layers, 4),
             nn.Softmax()
         )  
         self.decoder_joint_id2= nn.Sequential(
-            nn.Linear(hidden_layers, 3),
+            nn.Linear(dec_hidden_layers, 3),
             nn.Softmax()
         )
         self.decoder_prop_id2= nn.Sequential(
-            nn.Linear(hidden_layers, 4),
+            nn.Linear(dec_hidden_layers, 4),
             nn.Softmax()
         )  
         self.decoder_prop_id3= nn.Sequential(
-            nn.Linear(hidden_layers, 4),
+            nn.Linear(dec_hidden_layers, 4),
             nn.Softmax()
         )         
         # for the gaussian likelihood
@@ -110,6 +119,8 @@ class VAE(nn.Module):
         loss2=F.cross_entropy(x_ints[:,:3],inp[:,:3],size_average=False)
         for j in range(4):
             loss2+=F.cross_entropy(x_ints[:,3+j*4:3+(j+1)*4],inp[:,3+j*4:3+(j+1)*4],size_average=False)
+            if j<3:
+                loss2+=F.cross_entropy(x_ints[:,19+j*3:19+(j+1)*3],inp[:,19+j*3:19+(j+1)*3],size_average=False)
         # loss=torch.tensor(0,dtype=float)
         # for i, ground_truth in enumerate(inp):
         #     loss+=F.cross_entropy(torch.reshape(x_ints[i,:3],(1,3)),torch.reshape(ground_truth[:3],(1,3)))
@@ -118,7 +129,7 @@ class VAE(nn.Module):
         return loss2
             # print('hey')
     def configure_optimizers(self,lr=1e-4):
-        return torch.optim.Adam(self.parameters(), lr=lr)
+        return torch.optim.AdamW(self.parameters(), lr=lr)
 
 
     def gaussian_likelihood(self, x_hat, logscale, x):
@@ -160,30 +171,33 @@ class VAE(nn.Module):
     #     return recon_loss_ints
 
     def training_step(self, batch):
-        running_loss=[0.,0.,0.]
+        running_loss=[0.,0.,0.,0.]
         # if self.count==1000:
         #     self.lr=self.lr/5
         #     self.configure_optimizers(lr=self.lr)
         #     self.count=0
         for i in iter(batch):
             self.optimizer.zero_grad()
-            
+            x = i[0]
+            y = i[1]
             # encode x to get the mu and variance parameters
-            _, mu, std = self.forward(i)
+            _, mu, std = self.forward(x)
 
             q=torch.distributions.Normal(mu,std)
             z=q.rsample()
 
             # decoded
             x_reals, x_ints, body_id, prop_id, joint_id= self.decoder(z)
-            recon_loss_ints=self.ints_loss(i[:,40:],x_ints)
-            recon_loss_reals = 0.01*F.mse_loss(x_reals,i[:,:40])
+            recon_loss_ints=self.ints_weight*self.ints_loss(x[:,40:],x_ints)
+            recon_loss_reals = self.reals_weight*F.mse_loss(x_reals,x[:,:40])
+            performance_est=self.performance_predict(z)
+            recon_perf = self.perf_weight*F.mse_loss(performance_est,y[:,1:])
             # recon_loss_ints = 1.*F.binary_cross_entropy_with_logits(x_ints,i[:,40:])
             # recon_loss_ints = 500.*F.cross_entropy(x_ints,i[:,40:])
             # recon_loss = self.gaussian_likelihood(torch.cat((x_reals,x_ints),dim=1), self.log_scale, i[0])#F.mse_loss(z,zhat)-F.mse_loss(x_hat,x)#
             kl = (self.kl_divergence(z, mu, std)*self.kl_weight).mean()
             # recon_loss_ints=self.int_loss(body_id,prop_id,joint_id,i[:,40:])
-            elbo=(kl+recon_loss_reals+recon_loss_ints)
+            elbo=(kl+recon_loss_reals+recon_loss_ints+recon_perf)
 
             elbo.backward()
 
@@ -191,6 +205,7 @@ class VAE(nn.Module):
             running_loss[0] += recon_loss_reals.mean().item()
             running_loss[1] += recon_loss_ints.mean().item()
             running_loss[2] += kl.mean().item()#F.mse_loss(zout,z).item()
+            running_loss[3] += recon_perf.mean().item()
             # running_loss[2] += lin_loss.item()
             # lin_ap.append(lin_loss.item())
         self.count+=1
@@ -207,8 +222,10 @@ class VAE(nn.Module):
             correct_bodies=np.zeros((6))
             miss_identification_bodies=np.zeros((3,3))
             miss_identification_props=np.zeros((4,4))
+            miss_identification_joints=np.zeros((3,3))
             running_loss=[0.,0.,0.]
-            for i in iter(batch):
+            for ii in iter(batch):
+                i=ii[0]
                 self.optimizer.zero_grad()
                 _, mu, std = self.forward(i)
 
@@ -216,7 +233,7 @@ class VAE(nn.Module):
                 z=q.rsample()
 
                 # decoded
-                x_reals, x_ints, _, _, _= self.decoder(z)
+                x_reals, x_ints, _, _, _= self.decoder(mu)
                 i_ints=i[:,40:]
                 # F.cross_entropy(x_ints[:,:3],i_ints[:,:3])+F.cross_entropy(x_ints[:,3:7],i_ints[:,3:7])+F.cross_entropy(x_ints[:,7:11],i_ints[:,7:11])+F.cross_entropy(x_ints[:,11:15],i_ints[:,11:15])+F.cross_entropy(x_ints[:,15:19],i_ints[:,15:19])+F.cross_entropy(x_ints[:,19:22],i_ints[:,19:22])+F.cross_entropy(x_ints[:,22:25],i_ints[:,22:25])+F.cross_entropy(x_ints[:,25:28],i_ints[:,25:28])
                 for j in range(len(i)):
@@ -237,6 +254,11 @@ class VAE(nn.Module):
                                 correct_bodies[4]+=1
                             else:
                                 correct_bodies[5]+=1
+                    # for jj in range(torch.argmax(i_ints[j,:3]).item()+1):
+                    #     if (torch.argmax(x_ints[j][19+3*jj:19+3*(jj+1)])==torch.argmax(i_ints[j,19+3*jj:19+3*(jj+1)])).detach().numpy()==True:
+                    #         correct_bodies[6]+=1
+                    #     else:
+                    #         correct_bodies[7]+=1
 
                 return correct_bodies, miss_identification_bodies, miss_identification_props
         # return x_hat.detach().numpy(), z.detach().numpy(), x.detach().numpy()

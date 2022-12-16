@@ -65,7 +65,7 @@ def run_multi(ii):
         edge_rec.append(copy.copy(edge_current))
         count+=1
         if count_save==20:
-            save_results(x_rec,edge_rec,sim_results,10,ii)
+            save_results(x_rec,edge_rec,sim_results,11,ii)
             count_save=0
         else:
             count_save+=1

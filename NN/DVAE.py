@@ -5,12 +5,12 @@ from numpy.linalg import eig
 import numpy as np
 
 class VAE(nn.Module):
-    def __init__(self, enc_out_dim=68, latent_dim=5, input_height=68,lr=1e-2,hidden_layers=128,dec_hidden_layers=128,performance_out=6):
+    def __init__(self, enc_out_dim=68, latent_dim=16, input_height=68,lr=1e-3,hidden_layers=64,dec_hidden_layers=128,performance_out=6):
         super(VAE, self).__init__()
-        self.reals_weight=0.01
-        self.ints_weight=10.
-        self.kl_weight=0.01
-        self.perf_weight=1.
+        self.reals_weight=0.00#1
+        self.ints_weight=1.
+        self.kl_weight=0.0#1
+        self.perf_weight=0.0#1
         self.dec_hidden_layers=dec_hidden_layers
         self.lr=lr
         self.count=0
@@ -19,10 +19,12 @@ class VAE(nn.Module):
         self.body_num=4
         self.performance_out=performance_out
         self.linear_relu_stack = nn.Sequential(
-            nn.Linear(input_height, hidden_layers),
+            nn.Linear(input_height, 2*hidden_layers),
             nn.Tanh(),
-            nn.Linear(hidden_layers, hidden_layers),
-            nn.ReLU()            
+            nn.Linear(2*hidden_layers, 2*hidden_layers),
+            nn.Tanh(),
+            nn.Linear(2*hidden_layers, hidden_layers),
+            # nn.Tanh()         
         )
         self.linear_mu = nn.Sequential(
             nn.Linear(hidden_layers, latent_dim),
@@ -121,13 +123,8 @@ class VAE(nn.Module):
             loss2+=F.cross_entropy(x_ints[:,3+j*4:3+(j+1)*4],inp[:,3+j*4:3+(j+1)*4],size_average=False)
             if j<3:
                 loss2+=F.cross_entropy(x_ints[:,19+j*3:19+(j+1)*3],inp[:,19+j*3:19+(j+1)*3],size_average=False)
-        # loss=torch.tensor(0,dtype=float)
-        # for i, ground_truth in enumerate(inp):
-        #     loss+=F.cross_entropy(torch.reshape(x_ints[i,:3],(1,3)),torch.reshape(ground_truth[:3],(1,3)))
-        #     for j in range(torch.argmax(x_ints[i,:3])+2):
-        #         loss+=F.cross_entropy(torch.reshape(x_ints[i,3+j*4:3+(j+1)*4],(1,4)),torch.reshape(ground_truth[3+j*4:3+(j+1)*4],(1,4)))
         return loss2
-            # print('hey')
+
     def configure_optimizers(self,lr=1e-4):
         return torch.optim.AdamW(self.parameters(), lr=lr)
 
@@ -170,16 +167,17 @@ class VAE(nn.Module):
     #                 recon_loss_ints+=self.lr_ints*F.cross_entropy(joint_id[j,jj*3:(jj+1)*3],i[j,19+jj*3:19+(jj+1)*3])
     #     return recon_loss_ints
 
-    def training_step(self, batch):
+    def training_step(self, batch,device):
         running_loss=[0.,0.,0.,0.]
         # if self.count==1000:
         #     self.lr=self.lr/5
         #     self.configure_optimizers(lr=self.lr)
         #     self.count=0
         for i in iter(batch):
+            # i.to(device)
             self.optimizer.zero_grad()
-            x = i[0]
-            y = i[1]
+            x = i[0].to(device)
+            y = i[1].to(device)
             # encode x to get the mu and variance parameters
             _, mu, std = self.forward(x)
 
@@ -217,7 +215,7 @@ class VAE(nn.Module):
 # plt.plot(x[:,0].detach().numpy())
 # plt.plot(x_hat[:,0].detach().numpy())
 
-    def test(self, batch):
+    def test(self, batch,device):
         with torch.no_grad():
             correct_bodies=np.zeros((6))
             miss_identification_bodies=np.zeros((3,3))
@@ -225,7 +223,7 @@ class VAE(nn.Module):
             miss_identification_joints=np.zeros((3,3))
             running_loss=[0.,0.,0.]
             for ii in iter(batch):
-                i=ii[0]
+                i=ii[0].to(device)
                 self.optimizer.zero_grad()
                 _, mu, std = self.forward(i)
 
@@ -238,19 +236,19 @@ class VAE(nn.Module):
                 # F.cross_entropy(x_ints[:,:3],i_ints[:,:3])+F.cross_entropy(x_ints[:,3:7],i_ints[:,3:7])+F.cross_entropy(x_ints[:,7:11],i_ints[:,7:11])+F.cross_entropy(x_ints[:,11:15],i_ints[:,11:15])+F.cross_entropy(x_ints[:,15:19],i_ints[:,15:19])+F.cross_entropy(x_ints[:,19:22],i_ints[:,19:22])+F.cross_entropy(x_ints[:,22:25],i_ints[:,22:25])+F.cross_entropy(x_ints[:,25:28],i_ints[:,25:28])
                 for j in range(len(i)):
                     ## Determine if body number is correct ##
-                    if (torch.argmax(x_ints[j][:3])==torch.argmax(i_ints[j,:3])).detach().numpy()==True:
+                    if (torch.argmax(x_ints[j][:3])==torch.argmax(i_ints[j,:3]))==True:
                         correct_bodies[0]+=1
                     else:
                         correct_bodies[1]+=1
                         miss_identification_bodies[torch.argmax(i_ints[j,:3]).item(),torch.argmax(x_ints[j][:3]).item()]+=1
                     for jj in range(torch.argmax(i_ints[j,:3]).item()+2):
-                        if (torch.argmax(x_ints[j][3+4*jj:3+4*(jj+1)])==torch.argmax(i_ints[j,3+4*jj:3+4*(jj+1)])).detach().numpy()==True:
+                        if (torch.argmax(x_ints[j][3+4*jj:3+4*(jj+1)])==torch.argmax(i_ints[j,3+4*jj:3+4*(jj+1)]))==True:
                             correct_bodies[2]+=1
                         else:
                             correct_bodies[3]+=1
                             miss_identification_props[torch.argmax(i_ints[j,3+4*jj:3+4*(jj+1)]).item(),torch.argmax(x_ints[j][3+4*jj:3+4*(jj+1)]).item()]+=1
                         if jj < 3:
-                            if (torch.argmax(x_ints[j][3+16+3*jj:3+16+3*(jj+1)])==torch.argmax(i_ints[j,3+16+3*jj:3+16+3*(jj+1)])).detach().numpy()==True:
+                            if (torch.argmax(x_ints[j][3+16+3*jj:3+16+3*(jj+1)])==torch.argmax(i_ints[j,3+16+3*jj:3+16+3*(jj+1)]))==True:
                                 correct_bodies[4]+=1
                             else:
                                 correct_bodies[5]+=1

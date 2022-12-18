@@ -24,7 +24,7 @@ miss_identification_props=[]
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 model=VAE()
 model.to(device)
-# model.load_state_dict(torch.load("./current_model0"))
+# model.load_state_dict(torch.load("./current_model2"))
 counter=0
 counter2=0
 # t0=time.perf_counter()
@@ -45,7 +45,7 @@ for i in range(30000):
         counter=0
         model.to(device)
     print(i, loss)
-    if counter2==1500:
+    if counter2==500:
         
         model.scheduler.step()
         counter2=0
@@ -57,8 +57,8 @@ for i in range(30000):
     # print(i, loss, timer)
     # timer=time.perf_counter()-t0
     # t0=time.perf_counter()
-    # print(timer)
-torch.save(model.state_dict(), 'current_model2')
+    # print(timer) current_model2 has a latent space size of 16
+torch.save(model.state_dict(), 'current_model3')
 
 
 

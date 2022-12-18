@@ -5,12 +5,12 @@ from numpy.linalg import eig
 import numpy as np
 
 class VAE(nn.Module):
-    def __init__(self, enc_out_dim=68, latent_dim=16, input_height=68,lr=1e-3,hidden_layers=64,dec_hidden_layers=128,performance_out=6):
+    def __init__(self, enc_out_dim=68, latent_dim=16, input_height=68,lr=2e-3,hidden_layers=64,dec_hidden_layers=128,performance_out=6):
         super(VAE, self).__init__()
-        self.reals_weight=0.00#1
+        self.reals_weight=1.
         self.ints_weight=1.
-        self.kl_weight=0.0#1
-        self.perf_weight=0.0#1
+        self.kl_weight=1.
+        self.perf_weight=1.
         self.dec_hidden_layers=dec_hidden_layers
         self.lr=lr
         self.count=0
@@ -32,11 +32,12 @@ class VAE(nn.Module):
         )
         self.linear_logstd = nn.Sequential(
             nn.Linear(hidden_layers, latent_dim),
-            # nn.Tanh()
+            # nn.ReLU()
         )
 
         self.decoder_to_ints = nn.Linear(latent_dim, dec_hidden_layers)
-        self.decoder_rnn = nn.Linear(hidden_layers, hidden_layers)
+        self.decoder_rnn = nn.Linear(latent_dim, dec_hidden_layers)
+        self.decoder_rnn_hidden = nn.Linear(dec_hidden_layers, dec_hidden_layers)
         # self.decoder_props_hidden = nn.RNN(input_size=latent_dim, hidden_size=hidden_layers,batch_first=False)
         self.performance_predict = nn.Sequential(
             nn.Linear(latent_dim,hidden_layers),
@@ -101,19 +102,19 @@ class VAE(nn.Module):
         return logits, mu, logstd
 
     def decoder(self,z):
+        h0=torch.zeros(self.dec_hidden_layers).to(z.device)
         xhat = self.decoder_reals(z)
-        zint=self.decoder_to_ints(z)
-        body_id = self.decoder_body_id(zint)
-        # hidden_prop=torch.zeros_like(zint)
-        # hn=zint+self.decoder_rnn(hidden_prop)
-        # prop_id=self.decoder_prop_id0(hn)
-        # for i in range(3):
-        #     hn=zint+self.decoder_rnn(hidden_prop)
-        #     prop_id=torch.cat((prop_id,self.decoder_prop_id0(hn)),dim=1)
-
-
-        prop_id = torch.cat((self.decoder_prop_id0(zint),self.decoder_prop_id1(zint),self.decoder_prop_id2(zint),self.decoder_prop_id3(zint)),dim=1)
-        joint_id = torch.cat((self.decoder_joint_id0(zint),self.decoder_joint_id1(zint),self.decoder_joint_id2(zint)),dim=1)
+        z0=self.decoder_rnn(z)
+        h0=z0+self.decoder_rnn_hidden(h0)
+        body_id = self.decoder_body_id(h0)
+        h0=z0+self.decoder_rnn_hidden(h0)
+        prop_id = self.decoder_prop_id0(h0)
+        joint_id = self.decoder_joint_id0(h0)
+        for i in range(3):
+            h0=z0+self.decoder_rnn_hidden(h0)
+            prop_id=torch.cat((prop_id,self.decoder_prop_id0(h0)),dim=1)
+            if i<2:
+                joint_id=torch.cat((joint_id,self.decoder_joint_id0(h0)),dim=1)
 
         return xhat, torch.cat((body_id,prop_id,joint_id),dim=1), body_id, prop_id, joint_id
 
@@ -128,7 +129,6 @@ class VAE(nn.Module):
     def configure_optimizers(self,lr=1e-4):
         return torch.optim.AdamW(self.parameters(), lr=lr)
 
-
     def gaussian_likelihood(self, x_hat, logscale, x):
         scale = torch.exp(logscale)
         mean = x_hat
@@ -137,7 +137,6 @@ class VAE(nn.Module):
         # measure prob of seeing image under p(x|z)
         log_pxz = dist.log_prob(x)
         return log_pxz.sum(dim=(1))
-
 
     def kl_divergence(self, z, mu, std):
         # --------------------------

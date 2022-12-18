@@ -397,3 +397,33 @@ def convert2tensor(nodes):
             x.append([nod['active'][0],nod['active'][1],ori_index,nod['location'][0],nod['location'][2]])
         
     return x, edge_index
+
+def create_vehicles(x_reals,x_ints,num_bodies=4,num_body_reals=3,num_prop_reals=4,num_joint_reals=4,num_prop_ints=4,num_joint_ints=3):
+    ## Determine the number of bodies ##
+    bodies=np.argmax(x_ints[:3])+2
+    body_reals=np.reshape(x_reals[:num_bodies*num_body_reals],(num_bodies,num_body_reals))
+    prop_reals=np.reshape(x_reals[num_bodies*num_body_reals:num_bodies*(num_body_reals+num_prop_reals)],(num_bodies,num_prop_reals))
+    joint_reals=np.reshape(x_reals[num_bodies*(num_body_reals+num_prop_reals):],(num_bodies-1,num_joint_reals))
+    prop_ints=np.reshape(x_ints[3:3+num_prop_ints*num_bodies],(num_bodies,num_prop_ints))
+    joint_ints=np.reshape(x_ints[3+num_prop_ints*num_bodies:],(num_bodies-1,num_joint_ints))
+    joint_ints=np.vstack((joint_ints,np.array([0,0,1])))
+    joint_reals=np.vstack((joint_reals,np.zeros(num_joint_reals)))
+    nodes=[]
+    edges=[]
+    body_id=0
+    for i in range(bodies):
+        propid=np.argmax(prop_ints[i,:])
+        jointid=np.argmax(joint_ints[i,:])
+        nodes.append([body_reals[i,0],body_reals[i,1],body_reals[i,1],0.,0.])
+        if propid!=0:
+            nodes.append([propid-1, prop_reals[i,0], prop_reals[i,1], prop_reals[i,2], prop_reals[i,3]])
+            edges.append([body_id,body_id+1])
+            edges.append([body_id,body_id+2])
+            index_increase=3
+        else:
+            edges.append([body_id,body_id+1])
+            index_increase=2
+        
+        nodes.append([joint_reals[i,0],joint_reals[i,1],jointid,joint_reals[i,2],joint_reals[i,3]])
+        body_id+=index_increase
+    return nodes, edges

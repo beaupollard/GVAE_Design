@@ -259,3 +259,23 @@ class VAE(nn.Module):
 
                 return correct_bodies, miss_identification_bodies, miss_identification_props
         # return x_hat.detach().numpy(), z.detach().numpy(), x.detach().numpy()
+
+    def design_grads(self,batch,min_index=0):
+        for ii in iter(batch):
+            i=ii[0]
+            self.optimizer.zero_grad()
+            _, mu, std = self.forward(i)
+            performance_est=self.performance_predict(mu)
+            perf_index=torch.argmin(performance_est[:,min_index])
+            z=mu[perf_index]
+            x_reals, x_ints, _, _, _= self.decoder(torch.reshape(z,(1,len(z))))
+            for i in range(self.latent_dim):
+                z[i]=z[i]*(1+0.1)
+                reals, ints, _, _, _= self.decoder(torch.reshape(z,(1,len(z))))
+                x_reals=torch.cat((x_reals,reals))
+                x_ints=torch.cat((x_ints,ints))
+                z[i]=z[i]*(1-0.1)
+        
+        return x_reals.detach().numpy(), x_ints.detach().numpy()
+            
+

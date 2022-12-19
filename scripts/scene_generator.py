@@ -71,10 +71,11 @@ def run_multi(ii):
             count_save+=1
         print(ii, count)
 
-processes = []
-for i in range(4):
-    p = Process(target=run_multi, args=(i,))
-    p.start()
-    processes.append(p)
-for p in processes:
-    p.join()
+run_multi(0)
+# processes = []
+# for i in range(4):
+#     p = Process(target=run_multi, args=(i,))
+#     p.start()
+#     processes.append(p)
+# for p in processes:
+#     p.join()

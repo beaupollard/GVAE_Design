@@ -269,6 +269,8 @@ class VAE(nn.Module):
             perf_index=torch.argmin(performance_est[:,min_index])
             z=mu[perf_index]
             x_reals, x_ints, _, _, _= self.decoder(torch.reshape(z,(1,len(z))))
+            i_reals = i[perf_index,:40].detach().numpy()
+            i_ints = i[perf_index,40:].detach().numpy()
             for i in range(self.latent_dim):
                 z[i]=z[i]*(1+0.1)
                 reals, ints, _, _, _= self.decoder(torch.reshape(z,(1,len(z))))
@@ -276,6 +278,7 @@ class VAE(nn.Module):
                 x_ints=torch.cat((x_ints,ints))
                 z[i]=z[i]*(1-0.1)
         
-        return x_reals.detach().numpy(), x_ints.detach().numpy()
+        return x_reals.detach().numpy(), x_ints.detach().numpy(), i_reals, i_ints
+        # return x_reals.item(), x_ints.item()
             
 

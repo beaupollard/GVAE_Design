@@ -411,19 +411,31 @@ def create_vehicles(x_reals,x_ints,num_bodies=4,num_body_reals=3,num_prop_reals=
     nodes=[]
     edges=[]
     body_id=0
+    prop_types=['none','wheel','planet wheel','track']
     for i in range(bodies):
-        propid=np.argmax(prop_ints[i,:])
+        # self.body_nodes={"name":"body","location":[],"length": 0,"width":20/39.37,"height":12/39.37,"clearance":0,"childern": [],"parents": [],"index":0}
+        # self.joint_nodes={"name":"joint","location": [0, 0, 0],"orientation":[0,0,0],"active":[],"childern": [],"parents": [],"index":1}
+        # self.prop_nodes={"name":"prop","location": [0, 0, 0],"radius":0,"childern": [],"parents": [],"type":'none'}
+        propid=np.argmax(prop_ints[i,:]).item()
         jointid=np.argmax(joint_ints[i,:])
-        nodes.append([body_reals[i,0],body_reals[i,1],body_reals[i,1],0.,0.])
+        
+        # nodes.append([body_reals[i,0],body_reals[i,1],body_reals[i,1],0.,0.])
         if propid!=0:
-            nodes.append([propid-1, prop_reals[i,0], prop_reals[i,1], prop_reals[i,2], prop_reals[i,3]])
+            # nodes.append([propid-1, prop_reals[i,0], prop_reals[i,1], prop_reals[i,2], prop_reals[i,3]])
+            ## Determine what type of mechanism is next [0=none, 1=wheel, 2=planet wheel, 3=track] ##
+            # nodes.append([propid-1, prop_reals[i,0], prop_reals[i,1], prop_reals[i,2], prop_reals[i,3]])
+            nodes.append({"name":"body","location":[],"length": body_reals[i,0].item(),"width":body_reals[i,1].item(),"height":body_reals[i,2].item(),"clearance":0,"childern": [body_id+1,body_id+2],"parents": [],"index":0})
+            nodes.append({"name":"prop","location": [prop_reals[i,1].item(), prop_reals[i,2].item(), prop_reals[i,3].item()],"radius":prop_reals[i,0].item(),"childern": [],"parents": [],"type":prop_types[propid]})
             edges.append([body_id,body_id+1])
             edges.append([body_id,body_id+2])
             index_increase=3
         else:
+            nodes.append({"name":"body","location":[],"length": body_reals[i,0].item(),"width":body_reals[i,1].item(),"height":body_reals[i,2].item(),"clearance":0,"childern": [body_id+1],"parents": [],"index":0})
             edges.append([body_id,body_id+1])
             index_increase=2
-        
-        nodes.append([joint_reals[i,0],joint_reals[i,1],jointid,joint_reals[i,2],joint_reals[i,3]])
+        jori=[0.,0.,0.]
+        jori[jointid]=math.sin(math.pi/4)
+        nodes.append({"name":"joint","location": [joint_reals[i,2].item(), 0, joint_reals[i,3].item()],"orientation":jori,"active":[joint_reals[i,0].item(),joint_reals[i,1].item()],"childern": [],"parents": [],"index":1})
+        # nodes.append([joint_reals[i,0],joint_reals[i,1],jointid,joint_reals[i,2],joint_reals[i,3]])
         body_id+=index_increase
     return nodes, edges

@@ -3,9 +3,12 @@ import torch.nn.functional as F
 import torch
 from numpy.linalg import eig
 import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
 
 class VAE(nn.Module):
-    def __init__(self, enc_out_dim=68, latent_dim=16, input_height=68,lr=2e-3,hidden_layers=64,dec_hidden_layers=128,performance_out=6):
+    def __init__(self, enc_out_dim=68, latent_dim=16, input_height=68,lr=2e-4,hidden_layers=64,dec_hidden_layers=128,performance_out=6):
         super(VAE, self).__init__()
         self.reals_weight=1.
         self.ints_weight=1.
@@ -281,4 +284,12 @@ class VAE(nn.Module):
         return x_reals.detach().numpy(), x_ints.detach().numpy(), i_reals, i_ints
         # return x_reals.item(), x_ints.item()
             
+    def principle_plot(self,z,performance_est,performance_index=0):
+        z=StandardScaler().fit_transform(z.detach().numpy())
+        pca = PCA(n_components=2)
+        principalComponents = pca.fit_transform(z)
 
+        fig = plt.figure()
+        ax = plt.axes(projection='3d')
+        ax.scatter3D(principalComponents[:,0],principalComponents[:,1],performance_est[:,performance_index].detach().numpy())  
+        plt.show()      

@@ -48,6 +48,8 @@ def run_multi(ii):
     client_id=0
     count=0
     count_save=0
+    step_height=[5.5/39.39]#,6.5/39.39,7.5/39.39]
+    slope=[25]#,32.5,40]
     # for i in range(100):
     while True:
         num_props=0
@@ -57,18 +59,21 @@ def run_multi(ii):
         # x_current, edge_current = utils.convert2tensor(nodes)
         
         joints, body_id, x_current, edge_current, nodes = utils.build_vehicles(sim,nodes)
-        final_pos=utils.build_steps(sim)
-        success, time_sim, ave_torque, max_torque, pin = main_run(np.array(joints).flatten(),body_id,nodes,final_pos,client,sim)
+        for j in step_height:
+            for i in slope:
+                final_pos, _, _, b0 = utils.build_steps(sim,25,j,i)
+                success, time_sim, ave_torque, max_torque, pin = main_run(np.array(joints).flatten(),body_id,nodes,final_pos,client,sim)
+                sim.removeObject(b0)
+                sim_results.append([success,time_sim,ave_torque,max_torque,pin[0],pin[1],pin[2],j,i])
+                x_rec.append(copy.copy(x_current))#, edge_current
+                edge_rec.append(copy.copy(edge_current))
+                count+=1
+                if count_save==20:
+                    save_results(x_rec,edge_rec,sim_results,11,ii)
+                    count_save=0
+                else:
+                    count_save+=1
         sim.closeScene()
-        sim_results.append([success,time_sim,ave_torque,max_torque,pin[0],pin[1],pin[2]])
-        x_rec.append(copy.copy(x_current))#, edge_current
-        edge_rec.append(copy.copy(edge_current))
-        count+=1
-        if count_save==20:
-            save_results(x_rec,edge_rec,sim_results,11,ii)
-            count_save=0
-        else:
-            count_save+=1
         print(ii, count)
 
 run_multi(0)

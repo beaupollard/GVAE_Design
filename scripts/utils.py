@@ -19,7 +19,7 @@ def generate_body(sim,body_size=[0.3,0.15,0.2]):
     b1=sim.createPrimitiveShape(sim.primitiveshape_spheroid,[0.05,0.05,0.05])
     sim.setShapeMass(b1,volume*density)
     sim.setObjectParent(b1,b0,True)
-    sim.setObjectPosition(b1,b0,[0,0,-0.15])
+    sim.setObjectPosition(b1,b0,[0,0,-0.2])
     return b0
 
 def generate_tracks(sim,radius,wheel_base,current_body,jlocation=[0,0,0]):
@@ -97,20 +97,51 @@ def generate_tracks(sim,radius,wheel_base,current_body,jlocation=[0,0,0]):
     sim.setObjectParent(Ltrack_links[0],current_body,0)
     set_joint_mode(sim,[Rj0,Lwheels[0]],j_spring=[],jtype='velocity')
 
-    ## Build track support ##
+    ## Build linear track support ##
     # support_size=[abs(wheel_base)-2.05*radius,0.015,0.025]
     # s0=sim.createPrimitiveShape(sim.primitiveshape_cuboid,support_size)
     # sim.setObjectInt32Param(s0,sim.shapeintparam_respondable,1)   
     # sim.setObjectParent(s0,current_body,0)
-    # sim.setObjectPosition(s0,-1,[(sim.getObjectPosition(Rj0,-1)[0]+sim.getObjectPosition(Rj1,-1)[0])/2,sim.getObjectPosition(Rj0,-1)[1]+0.025,sim.getObjectPosition(Rj0,-1)[2]-radius+support_size[2]/2.])
+    # midp=(sim.getObjectPosition(Rj0,-1)[0]+sim.getObjectPosition(Rj1,-1)[0])/2
+    # sim.setObjectPosition(s0,-1,[midp,sim.getObjectPosition(Rj0,-1)[1]+0.025,sim.getObjectPosition(Rj0,-1)[2]-radius+support_size[2]/1.25])
     # s1 = sim.copyPasteObjects([s0],0)
-    # sim.setObjectPosition(s1[0],-1,[(sim.getObjectPosition(Rj0,-1)[0]+sim.getObjectPosition(Rj1,-1)[0])/2,sim.getObjectPosition(Rj0,-1)[1]-0.025,sim.getObjectPosition(Rj0,-1)[2]-radius+support_size[2]/2.])
+    # sim.setObjectPosition(s1[0],-1,[(sim.getObjectPosition(Rj0,-1)[0]+sim.getObjectPosition(Rj1,-1)[0])/2,sim.getObjectPosition(Rj0,-1)[1]-0.025,sim.getObjectPosition(Rj0,-1)[2]-radius+support_size[2]/1.25])
     # s2 = sim.copyPasteObjects([s0,s1[0]],0)
     # sim.setObjectPosition(s2[0],-1,[sim.getObjectPosition(s0,-1)[0],-sim.getObjectPosition(s0,-1)[1],sim.getObjectPosition(s0,-1)[2]])
     # sim.setObjectPosition(s2[1],-1,[sim.getObjectPosition(s1[0],-1)[0],-sim.getObjectPosition(s1[0],-1)[1],sim.getObjectPosition(s1[0],-1)[2]])
     # sim.setObjectParent(s1[0],current_body,0)
     # sim.setObjectParent(s2[0],current_body,0)
     # sim.setObjectParent(s2[1],current_body,0)
+
+    ## Build rotational track support ##
+    length_s=(abs(wheel_base)-2.05*radius)/2
+    support_size=[radius/1.5,radius/1.5,0.015]
+    s0=sim.createPrimitiveShape(sim.primitiveshape_cylinder,support_size)
+    sim.setObjectQuaternion(s0,s0,[math.sin(math.pi/4),0.,0.,math.cos(math.pi/4)])
+    sim.setObjectInt32Param(s0,sim.shapeintparam_respondable,1)   
+    sim.setObjectParent(s0,current_body,0)
+    midp=(sim.getObjectPosition(Rj0,-1)[0]+sim.getObjectPosition(Rj1,-1)[0])/2
+    sim.setObjectPosition(s0,-1,[midp-length_s+support_size[0],sim.getObjectPosition(Rj0,-1)[1]+0.025,sim.getObjectPosition(Rj0,-1)[2]-radius+support_size[0]/1.5])
+    s0=[s0]
+    int_wheels=math.floor(2*length_s/(support_size[0]))
+    if int_wheels==1:
+        int_wheels=2
+    for i in range(int_wheels-1):
+        s1=(sim.copyPasteObjects([s0[-1]],0))
+        sim.setObjectPosition(s1[0],s0[-1],[support_size[0],0,0])
+        s0.append(s1[0])
+
+    s1=sim.groupShapes(s0)
+    s0 = sim.copyPasteObjects([s1],0)
+    sim.setObjectPosition(s0[0],s1,[0.05,0.,0.])
+
+    s2 = sim.copyPasteObjects([s0[0],s1],0)
+    sim.setObjectPosition(s2[0],-1,[sim.getObjectPosition(s0[0],-1)[0],-sim.getObjectPosition(s0[0],-1)[1],sim.getObjectPosition(s0[0],-1)[2]])
+    sim.setObjectPosition(s2[1],-1,[sim.getObjectPosition(s1,-1)[0],-sim.getObjectPosition(s1,-1)[1],sim.getObjectPosition(s1,-1)[2]])
+    sim.setObjectParent(s0[0],current_body,0)
+    sim.setObjectParent(s1,current_body,0)
+    sim.setObjectParent(s2[0],current_body,0)
+    sim.setObjectParent(s2[1],current_body,0)
     return Rj0, Lwheels[0], Rj1, Lwheels[1], radius
 
 def build_links(sim,link_length,link_height,joint_length):
@@ -354,10 +385,10 @@ def build_vehicles(sim,nodes):
     x_current, edge_current = convert2tensor(nodes)
     return props, lead_bodyid, x_current, edge_current, nodes
 
-def build_steps(sim,num_steps=10,step_height=6.5/39.37,slope=30):
+def build_steps(sim,num_steps=50,step_height=6.5/39.37,slope=30):
     b0=[]
     for i in range(num_steps):
-        b0.append(sim.createPrimitiveShape(sim.primitiveshape_cuboid,[1.,2.,step_height]))
+        b0.append(sim.createPrimitiveShape(sim.primitiveshape_cuboid,[1.,4.,step_height]))
         l=step_height/math.tan(slope*math.pi/180)
         sim.setObjectPosition(b0[-1],b0[-1],[-l*i-1.0,0,step_height/2+step_height*i])
 
@@ -366,7 +397,7 @@ def build_steps(sim,num_steps=10,step_height=6.5/39.37,slope=30):
     # sim.setObjectInt32Param(Rw,sim.shapeintparam_static,0)
     sim.setObjectInt32Param(Rw,sim.shapeintparam_respondable,1)
     sim.cameraFitToView(0)
-    return final_pos
+    return final_pos, step_height, slope, Rw
     
 def convert2tensor(nodes):
     ## Save as a datalist ##

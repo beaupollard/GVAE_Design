@@ -306,10 +306,10 @@ class VAE(nn.Module):
                     z=torch.cat((z,torch.reshape(mu[perf_index[j]],(1,len(mu[perf_index[j]])))))
                     x_reals = torch.cat((x_reals,torch.reshape(i[perf_index[j],:40],(1,len(i[perf_index[j],:40])))))
                     x_ints = torch.cat((x_ints,torch.reshape(i[perf_index[j],40:],(1,len(i[perf_index[j],40:])))))
-        
+        self.principle_plot(mu,performance_est,perf_index,performance_index=0)
         return x_reals.detach().numpy(), x_ints.detach().numpy()
 
-    def principle_plot(self,z,performance_est,z2,perf2,performance_index=0):
+    def principle_plot(self,z,performance_est,highlights,performance_index=0):
         z=StandardScaler().fit_transform(z.detach().numpy())
         pca = PCA(n_components=2)
         principalComponents = pca.fit_transform(z)

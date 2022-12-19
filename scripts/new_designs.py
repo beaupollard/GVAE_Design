@@ -15,10 +15,11 @@ from sim_ctrl_new_API import main_run
 sys.path.insert(0, '/home/beau/Documents/GVAE_Design/NN')
 from DVAE import VAE
 model=VAE()
-model.load_state_dict(torch.load("../NN/current_model4",map_location=torch.device("cpu")))
+model.load_state_dict(torch.load("../NN/current_model3",map_location=torch.device("cpu")))
 d1=torch.load('../NN/data1.pt')
 prev_data=torch.utils.data.DataLoader(d1,batch_size=len(d1), shuffle=False)
-x_reals, x_ints, gt_reals, gt_ints = model.design_grads(prev_data)
+# x_reals, x_ints, gt_reals, gt_ints = model.design_grads(prev_data)
+x_reals, x_ints = model.best_designs(prev_data)
 
 client = RemoteAPIClient()
 sim = client.getObject('sim')

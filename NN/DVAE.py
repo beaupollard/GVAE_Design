@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
+import copy
 
 class VAE(nn.Module):
     def __init__(self, enc_out_dim=68, latent_dim=16, input_height=68,lr=2e-4,hidden_layers=64,dec_hidden_layers=128,performance_out=6):
@@ -283,13 +284,37 @@ class VAE(nn.Module):
         
         return x_reals.detach().numpy(), x_ints.detach().numpy(), i_reals, i_ints
         # return x_reals.item(), x_ints.item()
+
+    def best_designs(self,batch,min_index=0,num_robots=100):
+        for ii in iter(batch):
+            i=ii[0]
+            self.optimizer.zero_grad()
+            _, mu, std = self.forward(i)
             
-    def principle_plot(self,z,performance_est,performance_index=0):
+            performance_est=self.performance_predict(mu)
+            perf_index=torch.topk(-performance_est[:,min_index],num_robots).indices#torch.argmin(performance_est[:,min_index])
+            # z=mu[perf_index]
+            # x_reals = i[perf_index,:40]
+            # x_ints = i[perf_index,40:]
+
+            for j in range(num_robots):
+                if j==0:
+                    z=torch.reshape(mu[perf_index[j]],(1,len(mu[perf_index[j]])))
+                    x_reals = torch.reshape(i[perf_index[j],:40],(1,len(i[perf_index[j],:40])))
+                    x_ints = torch.reshape(i[perf_index[j],40:],(1,len(i[perf_index[j],40:])))   
+                else:               
+                    z=torch.cat((z,torch.reshape(mu[perf_index[j]],(1,len(mu[perf_index[j]])))))
+                    x_reals = torch.cat((x_reals,torch.reshape(i[perf_index[j],:40],(1,len(i[perf_index[j],:40])))))
+                    x_ints = torch.cat((x_ints,torch.reshape(i[perf_index[j],40:],(1,len(i[perf_index[j],40:])))))
+        
+        return x_reals.detach().numpy(), x_ints.detach().numpy()
+
+    def principle_plot(self,z,performance_est,z2,perf2,performance_index=0):
         z=StandardScaler().fit_transform(z.detach().numpy())
         pca = PCA(n_components=2)
         principalComponents = pca.fit_transform(z)
 
         fig = plt.figure()
         ax = plt.axes(projection='3d')
-        ax.scatter3D(principalComponents[:,0],principalComponents[:,1],performance_est[:,performance_index].detach().numpy())  
+        ax.scatter3D(principalComponents[:,0],principalComponents[:,1],performance_est[:,performance_index].detach().numpy())
         plt.show()      

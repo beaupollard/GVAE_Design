@@ -423,9 +423,12 @@ def create_vehicles(x_reals,x_ints,num_bodies=4,num_body_reals=3,num_prop_reals=
         if propid!=0:
             # nodes.append([propid-1, prop_reals[i,0], prop_reals[i,1], prop_reals[i,2], prop_reals[i,3]])
             ## Determine what type of mechanism is next [0=none, 1=wheel, 2=planet wheel, 3=track] ##
-            # nodes.append([propid-1, prop_reals[i,0], prop_reals[i,1], prop_reals[i,2], prop_reals[i,3]])
-            nodes.append({"name":"body","location":[],"length": body_reals[i,0].item(),"width":body_reals[i,1].item(),"height":body_reals[i,2].item(),"clearance":0,"childern": [body_id+1,body_id+2],"parents": [],"index":0})
-            nodes.append({"name":"prop","location": [prop_reals[i,1].item(), prop_reals[i,2].item(), prop_reals[i,3].item()],"radius":prop_reals[i,0].item(),"childern": [],"parents": [],"type":prop_types[propid]})
+            # kinda cheating for right now #
+            nodes.append({"name":"body","location":[],"length": body_reals[i,0].item(),"width":0.508001,"height":0.3048006,"clearance":0,"childern": [body_id+1,body_id+2],"parents": [],"index":0})
+            nodes.append({"name":"prop","location": [prop_reals[i,1].item(), 0.658001006, -0.102400303],"radius":prop_reals[i,0].item(),"childern": [],"parents": [],"type":prop_types[propid]})
+            # This is the actual NN recreation #
+            # nodes.append({"name":"body","location":[],"length": body_reals[i,0].item(),"width":body_reals[i,1].item(),"height":body_reals[i,2].item(),"clearance":0,"childern": [body_id+1,body_id+2],"parents": [],"index":0})
+            # nodes.append({"name":"prop","location": [prop_reals[i,1].item(), prop_reals[i,2].item(), prop_reals[i,3].item()],"radius":prop_reals[i,0].item(),"childern": [],"parents": [],"type":prop_types[propid]})
             edges.append([body_id,body_id+1])
             edges.append([body_id,body_id+2])
             index_increase=3

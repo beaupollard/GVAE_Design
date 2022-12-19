@@ -48,8 +48,8 @@ def run_multi(ii):
     client_id=0
     count=0
     count_save=0
-    step_height=[5.5/39.39]#,6.5/39.39,7.5/39.39]
-    slope=[25]#,32.5,40]
+    step_height=[5.5/39.39,6.5/39.39,7.5/39.39]
+    slope=[25,32.5,40]
     # for i in range(100):
     while True:
         num_props=0

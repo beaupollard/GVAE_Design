@@ -65,7 +65,7 @@ class graph_gens():
 
     def generate_concept(self):
         ## Determine number of bodies ##
-        body_num=2#random.randint(2, 4)
+        body_num=random.randint(2, 4)
 
         prev_tracked=False      # set that the previous mechanism wasn't a track
         current_node=0          # current graph node
@@ -111,7 +111,7 @@ class graph_gens():
                 if i==body_num-1:
                     propulsors["type"]=prop_types[random.randint(0, 2)]
                 elif i==0:
-                    propulsors["type"]=prop_types[3]#random.randint(1, 3)]
+                    propulsors["type"]=prop_types[random.randint(1, 3)]
                 else:
                     propulsors["type"]=prop_types[random.randint(0, 3)]
             

@@ -9,7 +9,7 @@ from sklearn.decomposition import PCA
 import copy
 
 class VAE(nn.Module):
-    def __init__(self, enc_out_dim=68, latent_dim=16, input_height=68,lr=2e-4,hidden_layers=64,dec_hidden_layers=128,performance_out=6):
+    def __init__(self, enc_out_dim=68, latent_dim=16, input_height=68,lr=2e-4,hidden_layers=64,dec_hidden_layers=128,performance_out=6,env_inputs=2):
         super(VAE, self).__init__()
         self.reals_weight=1.
         self.ints_weight=1.
@@ -44,7 +44,7 @@ class VAE(nn.Module):
         self.decoder_rnn_hidden = nn.Linear(dec_hidden_layers, dec_hidden_layers)
         # self.decoder_props_hidden = nn.RNN(input_size=latent_dim, hidden_size=hidden_layers,batch_first=False)
         self.performance_predict = nn.Sequential(
-            nn.Linear(latent_dim,hidden_layers),
+            nn.Linear(latent_dim+env_inputs,hidden_layers),
             nn.ReLU(),
             nn.Linear(hidden_layers,performance_out)
         )
@@ -191,7 +191,7 @@ class VAE(nn.Module):
             x_reals, x_ints, body_id, prop_id, joint_id= self.decoder(z)
             recon_loss_ints=self.ints_weight*self.ints_loss(x[:,40:],x_ints)
             recon_loss_reals = self.reals_weight*F.mse_loss(x_reals,x[:,:40])
-            performance_est=self.performance_predict(z)
+            performance_est=self.performance_predict(torch.cat((z,y[:,-2:]),axis=1))
             recon_perf = self.perf_weight*F.mse_loss(performance_est,y[:,1:])
             # recon_loss_ints = 1.*F.binary_cross_entropy_with_logits(x_ints,i[:,40:])
             # recon_loss_ints = 500.*F.cross_entropy(x_ints,i[:,40:])
@@ -306,7 +306,7 @@ class VAE(nn.Module):
                     z=torch.cat((z,torch.reshape(mu[perf_index[j]],(1,len(mu[perf_index[j]])))))
                     x_reals = torch.cat((x_reals,torch.reshape(i[perf_index[j],:40],(1,len(i[perf_index[j],:40])))))
                     x_ints = torch.cat((x_ints,torch.reshape(i[perf_index[j],40:],(1,len(i[perf_index[j],40:])))))
-        self.principle_plot(mu,performance_est,perf_index,performance_index=0)
+        # self.principle_plot(mu,performance_est,perf_index,performance_index=0)
         return x_reals.detach().numpy(), x_ints.detach().numpy()
 
     def principle_plot(self,z,performance_est,highlights,performance_index=0):
@@ -317,4 +317,5 @@ class VAE(nn.Module):
         fig = plt.figure()
         ax = plt.axes(projection='3d')
         ax.scatter3D(principalComponents[:,0],principalComponents[:,1],performance_est[:,performance_index].detach().numpy())
+        ax.scatter3D(principalComponents[highlights,0],principalComponents[highlights,1],performance_est[highlights,performance_index].detach().numpy(),c='k')
         plt.show()      

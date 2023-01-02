@@ -72,13 +72,16 @@ def input_vectors(edges,nodes,results,num_bodies=4,num_body_reals=3,num_prop_rea
         ints=np.hstack((np.hstack((body_ints,prop_ints)),joint_ints[:(num_bodies-1)*num_joint_ints]))
         x=torch.tensor(np.hstack((reals,ints)),dtype=torch.float)
         y=torch.tensor(results[i],dtype=torch.float)
-        data.append([x,y])
-    torch.save(data,os.path.join('./','data.pt'))
+        if y[4]>0. or y[6]<0.:
+            pass
+        else:
+            data.append([x,y])
+
+    # torch.save(data,os.path.join('./','data.pt'))
     return data
             
-
 def create_dataset():
-    num_in=[11,12]
+    num_in=[1,2,3,4]
     run_num=[0,1,2,3]
     nodes=[]
     edges=[]

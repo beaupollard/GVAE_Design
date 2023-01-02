@@ -69,18 +69,18 @@ def run_multi(ii):
                 edge_rec.append(copy.copy(edge_current))
                 count+=1
                 if count_save==20:
-                    save_results(x_rec,edge_rec,sim_results,11,ii)
+                    save_results(x_rec,edge_rec,sim_results,5,ii)
                     count_save=0
                 else:
                     count_save+=1
         sim.closeScene()
         print(ii, count)
 
-run_multi(0)
-# processes = []
-# for i in range(4):
-#     p = Process(target=run_multi, args=(i,))
-#     p.start()
-#     processes.append(p)
-# for p in processes:
-#     p.join()
+# run_multi(0)
+processes = []
+for i in range(4):
+    p = Process(target=run_multi, args=(i,))
+    p.start()
+    processes.append(p)
+for p in processes:
+    p.join()

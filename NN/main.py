@@ -58,7 +58,7 @@ for i in range(30000):
     # timer=time.perf_counter()-t0
     # t0=time.perf_counter()
     # print(timer) current_model2 has a latent space size of 16
-torch.save(model.state_dict(), 'current_model3')
+torch.save(model.state_dict(), 'current_model_updatedv3')
 
 
 

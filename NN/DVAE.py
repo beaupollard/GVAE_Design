@@ -9,7 +9,7 @@ from sklearn.decomposition import PCA
 import copy
 
 class VAE(nn.Module):
-    def __init__(self, enc_out_dim=68, latent_dim=16, input_height=68,lr=2e-4,hidden_layers=64,dec_hidden_layers=128,performance_out=6,env_inputs=2):
+    def __init__(self, enc_out_dim=68, latent_dim=16, input_height=68,lr=2e-3,hidden_layers=64,dec_hidden_layers=128,performance_out=6,env_inputs=2):
         super(VAE, self).__init__()
         self.reals_weight=1.
         self.ints_weight=1.
@@ -192,7 +192,7 @@ class VAE(nn.Module):
             recon_loss_ints=self.ints_weight*self.ints_loss(x[:,40:],x_ints)
             recon_loss_reals = self.reals_weight*F.mse_loss(x_reals,x[:,:40])
             performance_est=self.performance_predict(torch.cat((z,y[:,-2:]),axis=1))
-            recon_perf = self.perf_weight*F.mse_loss(performance_est,y[:,1:])
+            recon_perf = self.perf_weight*F.mse_loss(performance_est,y[:,1:-2])
             # recon_loss_ints = 1.*F.binary_cross_entropy_with_logits(x_ints,i[:,40:])
             # recon_loss_ints = 500.*F.cross_entropy(x_ints,i[:,40:])
             # recon_loss = self.gaussian_likelihood(torch.cat((x_reals,x_ints),dim=1), self.log_scale, i[0])#F.mse_loss(z,zhat)-F.mse_loss(x_hat,x)#

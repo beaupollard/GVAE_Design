@@ -121,19 +121,31 @@ def generate_tracks(sim,radius,wheel_base,current_body,jlocation=[0,0,0]):
     sim.setObjectInt32Param(s0,sim.shapeintparam_respondable,1)   
     sim.setObjectParent(s0,current_body,0)
     midp=(sim.getObjectPosition(Rj0,-1)[0]+sim.getObjectPosition(Rj1,-1)[0])/2
-    sim.setObjectPosition(s0,-1,[midp-length_s+support_size[0],sim.getObjectPosition(Rj0,-1)[1]+0.025,sim.getObjectPosition(Rj0,-1)[2]-radius+support_size[0]/1.5])
+    # Set first idler location #
+    zloc = sim.getObjectPosition(Rj0,-1)[2]-radius+support_size[0]/1.5
+    xloc = sim.getObjectPosition(Rj0,-1)[0]-((radius+1.5*support_size[0]/2)**2-(radius-support_size[0]/1.5)**2)**0.5
+    yloc = sim.getObjectPosition(Rj0,-1)[1]+0.025
+    sim.setObjectPosition(s0,-1,[xloc,yloc,zloc])
+
+    # Determine how many idlers we can create #
+    dx=abs(2*(abs(midp)-abs(xloc)))
+    
+
+    # sim.setObjectPosition(s0,-1,[midp-length_s+support_size[0],sim.getObjectPosition(Rj0,-1)[1]+0.025,sim.getObjectPosition(Rj0,-1)[2]-radius+support_size[0]/1.5])
     s0=[s0]
-    int_wheels=math.floor(2*length_s/(support_size[0]))
-    if int_wheels<=1:
-        int_wheels=2
-    for i in range(int_wheels-1):
+    int_wheels=math.floor(dx/(support_size[0]))
+    # if int_wheels<=1:
+    #     int_wheels=2
+    for i in range(int_wheels):
         s1=(sim.copyPasteObjects([s0[-1]],0))
-        sim.setObjectPosition(s1[0],s0[-1],[support_size[0],0,0])
+        sim.setObjectPosition(s1[0],s0[-1],[-support_size[0],0,0])
         s0.append(s1[0])
+    sim.setObjectPosition(s0[-1],-1,[xloc-dx,yloc,zloc])
     try:
         s1=sim.groupShapes(s0)
     except:
         s1=s0[0]
+    
     s0 = sim.copyPasteObjects([s1],0)
     sim.setObjectPosition(s0[0],s1,[0.05,0.,0.])
 

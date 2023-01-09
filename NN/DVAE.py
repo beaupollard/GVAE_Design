@@ -285,7 +285,7 @@ class VAE(nn.Module):
         return x_reals.detach().numpy(), x_ints.detach().numpy(), i_reals, i_ints
         # return x_reals.item(), x_ints.item()
 
-    def best_designs(self,batch,min_index=0,num_robots=100):
+    def best_designs(self,batch,min_index=0,num_robots=300):
         for ii in iter(batch):
             i=ii[0]
             self.optimizer.zero_grad()
@@ -306,7 +306,8 @@ class VAE(nn.Module):
                     z=torch.cat((z,torch.reshape(mu[perf_index[j]],(1,len(mu[perf_index[j]])))))
                     x_reals = torch.cat((x_reals,torch.reshape(i[perf_index[j],:40],(1,len(i[perf_index[j],:40])))))
                     x_ints = torch.cat((x_ints,torch.reshape(i[perf_index[j],40:],(1,len(i[perf_index[j],40:])))))
-        # self.principle_plot(mu,performance_est,perf_index,performance_index=0)
+        # self.principle_plot(mu,performance_est,perf_index,x_ints,performance_index=0)
+        self.principle_plot(mu,performance_est,perf_index,x_ints,performance_index=0)
         return x_reals.detach().numpy(), x_ints.detach().numpy()
 
     def principle_plot(self,z,performance_est,highlights,performance_index=0):
@@ -314,6 +315,16 @@ class VAE(nn.Module):
         pca = PCA(n_components=2)
         principalComponents = pca.fit_transform(z)
 
+        x0=principalComponents[highlights[0],0]
+        y0=principalComponents[highlights[0],1]
+        dists=[]
+        
+        for i in range(len(principalComponents)):
+            dists.append((principalComponents[i,0]-x0)**2+(principalComponents[i,1]-y0)**2)
+        inds=dists.argsort()
+        
+        dists=np.array(dists)
+        inds=np.array(inds)
         fig = plt.figure()
         ax = plt.axes(projection='3d')
         ax.scatter3D(principalComponents[:,0],principalComponents[:,1],performance_est[:,performance_index].detach().numpy())

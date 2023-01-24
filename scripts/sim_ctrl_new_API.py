@@ -22,7 +22,7 @@ def steering(sim,body_id,motor_ids,radius,velo):
 def end_sim(sim,final_pos,body_id):
     pin=sim.getObjectPosition(body_id,-1)
     pin_ori=sim.getObjectOrientation(body_id,-1)
-    if pin_ori[1]*180/math.pi>85:
+    if pin_ori[1]*180/math.pi>85 or pin_ori[1]*180/math.pi<-10:
         return True, pin
     if pin[0]<final_pos[0] and pin[2]>final_pos[1]:
         return True, pin

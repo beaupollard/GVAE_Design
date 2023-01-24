@@ -32,11 +32,12 @@ def set_tracks(body_num=4,bodyw=0,bodyh=0,zloc=0,yloc=0):
     count=0
     flag=False
     while err==False:    
-        body_length=get_gauss_rand(30./body_num,12,24/body_num,36./body_num)/39.37
+        # body_length=get_gauss_rand(30./body_num,12,24/body_num,36./body_num)/39.37
+        body_length=36./body_num/39.37#get_gauss_rand(30./body_num,12,24/body_num,36./body_num)/39.37
         prop_location=[get_gauss_rand(0,5.,-body_length,body_length)/39.37,bodyw+0.15,-bodyh/2+0.05]
         prop_location2=[get_gauss_rand(0,5.,-body_length,body_length)/39.37,bodyw+0.15,-bodyh/2+0.05]
         joint_location=[body_length/2+1/39.37,0,get_gauss_rand(0.,5,-5,5)/39.37]
-        prop_radius=get_gauss_rand(8.,4.,3.,10.)/39.37
+        prop_radius=4.5/39.37#get_gauss_rand(8.,4.,3.,10.)/39.37
         body_length2=get_gauss_rand(12.,4.,6.,14.)/39.37
         wheel_base=joint_location[0]+body_length2/2+prop_location2[0]-prop_location[0]
         if wheel_base>2.35*prop_radius:

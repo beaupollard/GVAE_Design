@@ -9,7 +9,7 @@ from sklearn.decomposition import PCA
 import copy
 
 class VAE(nn.Module):
-    def __init__(self, enc_out_dim=68, latent_dim=16, input_height=68,lr=2e-3,hidden_layers=64,dec_hidden_layers=128,performance_out=6,env_inputs=2):
+    def __init__(self, enc_out_dim=68, latent_dim=16, input_height=68,lr=2e-3,hidden_layers=64,dec_hidden_layers=128,performance_out=5,env_inputs=2):
         super(VAE, self).__init__()
         self.reals_weight=1.
         self.ints_weight=1.
@@ -45,7 +45,9 @@ class VAE(nn.Module):
         # self.decoder_props_hidden = nn.RNN(input_size=latent_dim, hidden_size=hidden_layers,batch_first=False)
         self.performance_predict = nn.Sequential(
             nn.Linear(latent_dim+env_inputs,hidden_layers),
-            nn.ReLU(),
+            nn.Tanh(),
+            nn.Linear(hidden_layers,hidden_layers),
+            nn.Tanh(),
             nn.Linear(hidden_layers,performance_out)
         )
         self.decoder_reals = nn.Sequential(
@@ -285,14 +287,16 @@ class VAE(nn.Module):
         return x_reals.detach().numpy(), x_ints.detach().numpy(), i_reals, i_ints
         # return x_reals.item(), x_ints.item()
 
-    def best_designs(self,batch,min_index=0,num_robots=300):
+    def best_designs(self,batch,min_index=-1,num_robots=300):
         for ii in iter(batch):
             i=ii[0]
+            y=ii[1]
             self.optimizer.zero_grad()
             _, mu, std = self.forward(i)
-            
-            performance_est=self.performance_predict(mu)
-            perf_index=torch.topk(-performance_est[:,min_index],num_robots).indices#torch.argmin(performance_est[:,min_index])
+
+            performance_est=self.performance_predict(torch.cat((mu,y[:,-2:]),axis=1))
+            perf_index=torch.topk((y[:,-5]**2+y[:,-3]**2)**0.5,num_robots).indices#torch.argmin(performance_est[:,min_index])
+            # perf_index=torch.topk(-performance_est[:,min_index],num_robots).indices#torch.argmin(performance_est[:,min_index])
             # z=mu[perf_index]
             # x_reals = i[perf_index,:40]
             # x_ints = i[perf_index,40:]
@@ -307,8 +311,8 @@ class VAE(nn.Module):
                     x_reals = torch.cat((x_reals,torch.reshape(i[perf_index[j],:40],(1,len(i[perf_index[j],:40])))))
                     x_ints = torch.cat((x_ints,torch.reshape(i[perf_index[j],40:],(1,len(i[perf_index[j],40:])))))
         # self.principle_plot(mu,performance_est,perf_index,x_ints,performance_index=0)
-        self.principle_plot(mu,performance_est,perf_index,x_ints,performance_index=0)
-        return x_reals.detach().numpy(), x_ints.detach().numpy()
+        # self.principle_plot(mu,performance_est,perf_index,x_ints,performance_index=0)
+        return x_reals.detach().numpy(), x_ints.detach().numpy(), ((y[perf_index[:100].detach().numpy(),-5]**2+y[perf_index[:100].detach().numpy(),-3]**2)**0.5).detach().numpy(), y[perf_index[:100].detach().numpy(),-2].detach().numpy(), y[perf_index[:100].detach().numpy(),-1].detach().numpy()
 
     def principle_plot(self,z,performance_est,highlights,performance_index=0):
         z=StandardScaler().fit_transform(z.detach().numpy())

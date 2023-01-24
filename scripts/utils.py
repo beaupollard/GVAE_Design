@@ -145,21 +145,24 @@ def generate_tracks(sim,radius,wheel_base,current_body,jlocation=[0,0,0]):
         s1=sim.groupShapes(s0)
     except:
         s1=s0[0]
-    
-    s0 = sim.copyPasteObjects([s1],0)
-    sim.setObjectPosition(s0[0],s1,[0.05,0.,0.])
+    collision, _ = sim.checkCollision(s1,Rw1)
+    if collision==0:
+        s0 = sim.copyPasteObjects([s1],0)
+        sim.setObjectPosition(s0[0],s1,[0.05,0.,0.])
 
-    s2 = sim.copyPasteObjects([s0[0],s1],0)
-    sim.setObjectPosition(s2[0],-1,[sim.getObjectPosition(s0[0],-1)[0],-sim.getObjectPosition(s0[0],-1)[1],sim.getObjectPosition(s0[0],-1)[2]])
-    sim.setObjectPosition(s2[1],-1,[sim.getObjectPosition(s1,-1)[0],-sim.getObjectPosition(s1,-1)[1],sim.getObjectPosition(s1,-1)[2]])
-    sim.setObjectParent(s0[0],current_body,0)
-    sim.setObjectParent(s1,current_body,0)
-    sim.setObjectParent(s2[0],current_body,0)
-    sim.setObjectParent(s2[1],current_body,0)
+        s2 = sim.copyPasteObjects([s0[0],s1],0)
+        sim.setObjectPosition(s2[0],-1,[sim.getObjectPosition(s0[0],-1)[0],-sim.getObjectPosition(s0[0],-1)[1],sim.getObjectPosition(s0[0],-1)[2]])
+        sim.setObjectPosition(s2[1],-1,[sim.getObjectPosition(s1,-1)[0],-sim.getObjectPosition(s1,-1)[1],sim.getObjectPosition(s1,-1)[2]])
+        sim.setObjectParent(s0[0],current_body,0)
+        sim.setObjectParent(s1,current_body,0)
+        sim.setObjectParent(s2[0],current_body,0)
+        sim.setObjectParent(s2[1],current_body,0)
+    else:
+        sim.removeObject(s1)
     return Rj0, Lwheels[0], Rj1, Lwheels[1], radius
 
 def build_links(sim,link_length,link_height,joint_length):
-    link_dim=[[link_length,0.135,link_height],[0.015,0.135,0.025],[0.02,0.014,0.0255]]
+    link_dim=[[link_length,0.135,link_height],[0.0075,0.135,0.02],[0.02,0.014,0.0255]]
     link_location=[0.,0.,-link_height/2.1-link_dim[1][2]/2.1]
     l0=sim.createPrimitiveShape(sim.primitiveshape_cuboid,link_dim[0])
     l1=sim.createPrimitiveShape(sim.primitiveshape_cuboid,link_dim[1])

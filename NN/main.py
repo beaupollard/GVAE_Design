@@ -12,9 +12,9 @@ import torch
 
 BS=10*1028
 percent_train=0.8
-# d1=util.create_dataset()
-# torch.save(d1,'data2.pt')
-d1=torch.load('data2.pt')#smd.run_sim(run_nums=2,out_data=2,num_repeats=1)
+d1=util.create_dataset()
+torch.save(d1,'datatest3.pt')
+# d1=torch.load('data2.pt')#smd.run_sim(run_nums=2,out_data=2,num_repeats=1)
 train=torch.utils.data.DataLoader(d1,batch_size=BS, shuffle=True)
 test=torch.utils.data.DataLoader(d1,batch_size=len(d1), shuffle=False)
 correct_bodies=[]
@@ -24,7 +24,7 @@ miss_identification_props=[]
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 model=VAE()
 model.to(device)
-# model.load_state_dict(torch.load("./current_model2"))
+model.load_state_dict(torch.load("./current_model_updatedv4",map_location=torch.device('cpu')))
 counter=0
 counter2=0
 # t0=time.perf_counter()

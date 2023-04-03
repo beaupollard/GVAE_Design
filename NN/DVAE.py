@@ -286,6 +286,20 @@ class VAE(nn.Module):
         
         return x_reals.detach().numpy(), x_ints.detach().numpy(), i_reals, i_ints
         # return x_reals.item(), x_ints.item()
+    def jacobian(self,mu,y,index):
+        perf_0=self.performance_predict(torch.cat((mu,y[-2:])))
+        dPdz=np.zeros(len(mu))
+        eps=0.001
+        for i in range(len(mu)):
+            mu_add=torch.zeros((len(mu)))
+            mu_add[i]=eps
+
+            forward=self.performance_predict(torch.cat((mu+mu_add,y[-2:])))
+            mu_add[i]=-eps
+            backward=self.performance_predict(torch.cat((mu+mu_add,y[-2:])))            
+            dPdz[i]=(forward[0]-backward[0])/(2*eps)
+        mu=mu-dPdz
+        print('hey')
 
     def best_designs(self,batch,min_index=-1,num_robots=300):
         for ii in iter(batch):
@@ -295,12 +309,28 @@ class VAE(nn.Module):
             _, mu, std = self.forward(i)
 
             performance_est=self.performance_predict(torch.cat((mu,y[:,-2:]),axis=1))
+            travel_dist=((y[:,-5]**2+y[:,-3]**2)**0.5)/30.
             perf_index=torch.topk((y[:,-5]**2+y[:,-3]**2)**0.5,num_robots).indices#torch.argmin(performance_est[:,min_index])
+            self.jacobian(mu[perf_index[0]],y[perf_index[0]],2)
             # perf_index=torch.topk(-performance_est[:,min_index],num_robots).indices#torch.argmin(performance_est[:,min_index])
             # z=mu[perf_index]
             # x_reals = i[perf_index,:40]
             # x_ints = i[perf_index,40:]
 
+            # min_dist=0.23
+            # index2keep=[]
+            # for jj in range(len(travel_dist)):
+            #     if travel_dist[jj]>=min_dist:
+            #         index2keep.append(y[jj,:].detach().numpy())
+            # y=torch.tensor(np.array(index2keep))
+            # perf_index=torch.topk(-y[:,2],num_robots).indices
+            dist=[]
+            for jj in range(len(y)):
+                # if i==perf_index[0]:
+                #     dist.append(1000)
+                # else:
+                dist.append(torch.norm(mu[perf_index[0]]-mu[jj]).item())
+            perf_index=torch.tensor(np.argsort(np.array(dist)))
             for j in range(num_robots):
                 if j==0:
                     z=torch.reshape(mu[perf_index[j]],(1,len(mu[perf_index[j]])))
@@ -312,7 +342,7 @@ class VAE(nn.Module):
                     x_ints = torch.cat((x_ints,torch.reshape(i[perf_index[j],40:],(1,len(i[perf_index[j],40:])))))
         # self.principle_plot(mu,performance_est,perf_index,x_ints,performance_index=0)
         # self.principle_plot(mu,performance_est,perf_index,x_ints,performance_index=0)
-        return x_reals.detach().numpy(), x_ints.detach().numpy(), ((y[perf_index[:100].detach().numpy(),-5]**2+y[perf_index[:100].detach().numpy(),-3]**2)**0.5).detach().numpy(), y[perf_index[:100].detach().numpy(),-2].detach().numpy(), y[perf_index[:100].detach().numpy(),-1].detach().numpy()
+        return x_reals.detach().numpy(), x_ints.detach().numpy(), ((y[perf_index[:100].detach().numpy(),-5]**2+y[perf_index[:100].detach().numpy(),-3]**2)**0.5).detach().numpy(), y[perf_index[:100].detach().numpy(),2]
 
     def principle_plot(self,z,performance_est,highlights,performance_index=0):
         z=StandardScaler().fit_transform(z.detach().numpy())

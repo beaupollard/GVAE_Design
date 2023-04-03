@@ -48,8 +48,8 @@ def run_multi(ii):
     client_id=0
     count=0
     count_save=0
-    step_height=[5.5/39.39]#,6.5/39.39,7.5/39.39]
-    slope=[25]#,32.5,40]
+    step_height=[6.5/39.39]#[5.5/39.39,6.5/39.39,7.5/39.39]
+    slope=[28.0]#[25,32.5,40]
     # for i in range(100):
     while True:
         num_props=0
@@ -68,19 +68,19 @@ def run_multi(ii):
                 x_rec.append(copy.copy(x_current))#, edge_current
                 edge_rec.append(copy.copy(edge_current))
                 count+=1
-                if count_save==5:
-                    save_results(x_rec,edge_rec,sim_results,15,ii)
+                if count_save==10:
+                    save_results(x_rec,edge_rec,sim_results,20,ii)
                     count_save=0
                 else:
                     count_save+=1
         sim.closeScene()
         print(ii, count)
 
-# run_multi(0)
-processes = []
-for i in range(4):
-    p = Process(target=run_multi, args=(i,))
-    p.start()
-    processes.append(p)
-for p in processes:
-    p.join()
+run_multi(0)
+# processes = []
+# for i in range(4):
+#     p = Process(target=run_multi, args=(i,))
+#     p.start()
+#     processes.append(p)
+# for p in processes:
+#     p.join()

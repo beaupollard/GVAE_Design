@@ -81,12 +81,12 @@ def input_vectors(edges,nodes,results,num_bodies=4,num_body_reals=3,num_prop_rea
     return data
             
 def create_dataset():
-    num_in=[15]#,6]
+    num_in=[17,18,19,20]#,6]
     run_num=[0,1,2,3]
     nodes=[]
     edges=[]
     results=[]
-    path='../results/'#01_19_2023/'
+    path='../results/01_29_2023/'
     for i in num_in:
         for j in run_num:
             if len(nodes)==0:

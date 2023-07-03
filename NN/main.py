@@ -24,7 +24,7 @@ miss_identification_props=[]
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 model=VAE()
 model.to(device)
-model.load_state_dict(torch.load("./current_model_updatedv4",map_location=torch.device('cpu')))
+# model.load_state_dict(torch.load("./current_model_updatedv4",map_location=torch.device('cpu')))
 counter=0
 counter2=0
 # t0=time.perf_counter()

@@ -21,14 +21,14 @@ class MPPI():
         self.delta_U = torch.zeros((self.num_env,num_dof,self.T),dtype=torch.float32, device=self.device)  # sequence of actions
         self.stored_u = []                                                                      # Stored u value to execute
         self.mu_noise = torch.zeros(self.act_num_dof)                                           # Noise mean for perturbing control
-        self.nu = 1000.
+        self.nu = 20.
         self.u_max = 30.
         self.sigma_noise = torch.diag(self.nu*torch.ones(self.act_num_dof))                     # Noise covariance for perturbing control
         self.noise_dist = MultivariateNormal(self.mu_noise, covariance_matrix=self.sigma_noise) # Noise distribution
         self.noise_sigma_inv = torch.inverse(self.sigma_noise)                                  # Inverse of noise covariance
         self.tracked_dofs=tracked_dofs                                                          # Dof's to track with costs
         self.tracked_root=tracked_root                                                          # Root Dof's to track with costs
-        self._lambda = 100.
+        self._lambda = 10.
         self.q_hat = torch.zeros((self.num_env,self.T),dtype=torch.float32, device=self.device) 
         
         # self.gym.prepare_sim(self.sim)                                                          
@@ -65,23 +65,26 @@ class MPPI():
         '''
         Calculate the running costs 
         '''
-        q = torch.bmm(torch.bmm(self.tracked_states_vec.mT,self.Q),self.tracked_states_vec).flatten()
-        q+=(1-1/self.nu)/2*torch.bmm(torch.bmm(delta_u.mT,self.R),delta_u).flatten()
-        q+=torch.bmm(torch.bmm(u.mT,self.R),delta_u).flatten()+1/2*torch.bmm(torch.bmm(u.mT,self.R),u).flatten()
-        return q
+        q=500.*self.tracked_states_vec[:,1]**2
+        
+        # q = torch.bmm(torch.bmm(self.tracked_states_vec.mT,self.Q),self.tracked_states_vec).flatten()
+        # q+=(1-1/self.nu)/2*torch.bmm(torch.bmm(delta_u.mT,self.R),delta_u).flatten()
+        # q+=torch.bmm(torch.bmm(u.mT,self.R),delta_u).flatten()+1/2*torch.bmm(torch.bmm(u.mT,self.R),u).flatten()
+        return q.flatten()
     
     def _final_costs(self,delta_u,u):
         '''
-        Calculate the running costs 
+        Calculate the final costs 
         '''
-        q = torch.bmm(torch.bmm(self.tracked_states_vec.mT,10*self.Q),self.tracked_states_vec).flatten()
+        q=500.*self.tracked_states_vec[:,1]**2
+        # q = torch.bmm(torch.bmm(self.tracked_states_vec.mT,self.Q),self.tracked_states_vec).flatten()
         # q+=(1-1/self.nu)/2*torch.bmm(torch.bmm(delta_u.mT,self.R),delta_u).flatten()
         # q+=torch.bmm(torch.bmm(u.mT,self.R),delta_u).flatten()+1/2*torch.bmm(torch.bmm(u.mT,self.R),u).flatten()
-        return q
+        return q.flatten()
 
     def _clip_inputs(self):
         perturbed_action=torch.clip((self.U+self.delta_U),-self.u_max,self.u_max)
-        self.delta_U=self.U-perturbed_action
+        self.delta_U=perturbed_action-self.U
 
     def _get_samples(self):
         '''
@@ -89,14 +92,14 @@ class MPPI():
         '''
         samples = self.noise_dist.sample((self.num_env,self.T)) 
         for i, act_j in enumerate(self.active_index):
-            self.delta_U[:,act_j,:] = samples[:,:,i].to(self.device)
+            self.delta_U[:,act_j,:] = samples[:,:,0].to(self.device)
 
     def _rollout(self):
         '''
         Rollout the dynamics with the perturbed control inputs
         '''
         self._get_samples()
-        running_weight=torch.zeros(1,dtype=torch.float32, device=self.device)
+        self.running_weight=torch.zeros(self.q_hat.size(),dtype=torch.float32, device=self.device)
         self._clip_inputs()
         for i in range(self.T):
             forces_desc = gymtorch.unwrap_tensor((self.U[:,:,i]+self.delta_U[:,:,i]).contiguous())
@@ -105,16 +108,22 @@ class MPPI():
             self._refresh_state()
             self.rec_state[:,:,i]=self.dof_states_vec[:,:,0]
             if i < self.T-1:
-                self.q_hat[:,i]=torch.exp(-1/self._lambda*self._running_costs(self.delta_U[:,self.active_index,i:i+1],self.U[:,self.active_index,i:i+1]))
-                running_weight+=torch.sum(self.q_hat[:,i])
+                self.running_weight[:,i]=self._running_costs(self.delta_U[:,self.active_index,i:i+1],self.U[:,self.active_index,i:i+1])
+                # self.q_hat[:,i]=torch.exp(-1/self._lambda*self.running_weight[:,i])
+                # running_weight+=torch.sum(self._running_costs(self.delta_U[:,self.active_index,i:i+1],self.U[:,self.active_index,i:i+1]))
             else:
-                self.q_hat[:,i]=torch.exp(-1/self._lambda*self._final_costs(self.delta_U[:,self.active_index,i:i+1],self.U[:,self.active_index,i:i+1]))
-                running_weight+=torch.sum(self.q_hat[:,i])
+                self.running_weight[:,i]=self._final_costs(self.delta_U[:,self.active_index,i:i+1],self.U[:,self.active_index,i:i+1])
+                # self.q_hat[:,i]=torch.exp(-1/self._lambda*self.running_weight[:,i])
+                # running_weight+=torch.sum(self.q_hat[:,i])
+            # for j, act_j in enumerate(self.active_index):
+            #     self.U_weighted[:,act_j,i]= self.q_hat[:,i]*self.delta_U[:,act_j,i]
+        self.q_hat=torch.exp(-1/self._lambda*(self.running_weight-torch.min(self.running_weight)))
+        for i in range(self.T):
             for j, act_j in enumerate(self.active_index):
-                self.U_weighted[:,act_j,i]= self.q_hat[:,i]*self.delta_U[:,act_j,i]
-        
-        for i in range(self.T-1):
-            self.U[:,:,i]+=torch.sum(self.U_weighted[:,:,i],0)/torch.sum(self.q_hat[:,i]+10**(-30))
+                self.U_weighted[:,act_j,i]= self.q_hat[:,i]*self.delta_U[:,act_j,i]  
+
+        for i in range(self.T):
+            self.U[:,:,i]+=torch.sum(self.U_weighted[:,:,i],0)/(torch.sum(self.q_hat[:,i]))
 
             # for j in range(self.act_num_dof):
             #     self.running_costs[:,j]+=torch.mul(costs,self.delta_U[:,self.active_index[j],i])
@@ -124,11 +133,17 @@ class MPPI():
             print('stop')
     
     def test_U(self):
+        self.running_weight_test=torch.zeros(self.q_hat.size(),dtype=torch.float32, device=self.device)
         for i in range(self.T):
             forces_desc = gymtorch.unwrap_tensor((self.U[:,:,i]).contiguous())
             self.gym.set_dof_actuation_force_tensor(self.sim,forces_desc)
             self.gym.simulate(self.sim)
             self._refresh_state()
+            if i <self.T-1:
+                self.running_weight_test[:,i]=self._running_costs(self.delta_U[:,self.active_index,i:i+1],self.U[:,self.active_index,i:i+1])
+            else:
+                self.running_weight_test[:,i]=self._final_costs(self.delta_U[:,self.active_index,i:i+1],self.U[:,self.active_index,i:i+1])
+            
             self.new_state[:,i]=self.dof_states_vec[0,:,0]
 
         for i in range(self.num_env):

@@ -108,7 +108,7 @@ dof_states_vec = dof_states.view(num_envs,int(actors_per_env*dof_states.size()[0
 
 ## Initialize MPPI Controller ##
 active_index=[0,1,2,3]
-ctrl=MPPI(sim,gym,num_dofs,num_envs,20,active_index,[1.0,20.,10.],[4],[0])
+ctrl=MPPI(sim,gym,num_dofs,num_envs,20,active_index,[1.0,200.,0.01],[4],[0])
 count=0
 while True:
     # step the sim #

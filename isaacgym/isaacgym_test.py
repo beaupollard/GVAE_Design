@@ -54,7 +54,7 @@ dof_types = [gym.get_asset_dof_type(asset, i) for i in range(num_dofs)]
 dof_positions = dof_states['pos']
 
 # set up the env grid
-num_envs = int(2**11)
+num_envs = int(2**12)
 actors_per_env = 1
 dofs_per_actor = 11
 num_per_row = 8
@@ -108,7 +108,7 @@ dof_states_vec = dof_states.view(num_envs,int(actors_per_env*dof_states.size()[0
 
 ## Initialize MPPI Controller ##
 active_index=[0,1,2,3]
-ctrl=MPPI(sim,gym,num_dofs,num_envs,20,active_index,[1.0,200.,0.01],[4],[0])
+ctrl=MPPI(sim,gym,num_dofs,num_envs,50,active_index,weights=[1.0,200.,0.01],tracked_dofs=[4],tracked_root=[0])
 count=0
 while True:
     # step the sim #

@@ -6,7 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 class MPPI():
-    def __init__(self,sim,gym,num_dof,num_env,T,active_index,weights,tracked_dofs,tracked_root=[],ctrl_weights=0.*np.ones(4),device='cuda:0'):
+    def __init__(self,sim,gym,num_dof,num_env,T,active_index,weights,tracked_dofs,tracked_root=[],ctrl_weights=0.1*np.ones(4),device='cuda:0'):
         self.sim = sim                                                                          # Store the link to the sim
         self.gym = gym                                                                          # Store the link to Gym environment
         self.device = device                                                                    # Device to store tensors
@@ -17,6 +17,10 @@ class MPPI():
         self.act_num_dof = len(active_index)                                                    # Number of dof's per agent
         self.u = torch.zeros((self.num_env,num_dof,1),dtype=torch.float32, device=self.device)        # current action
         self.U = torch.zeros((self.num_env,num_dof,self.T),dtype=torch.float32, device=self.device)   # sequence of actions
+        ulinspace= np.linspace(-30,30,self.num_env)
+        for i in range(self.num_env):
+            self.U[i,:4,:] = ulinspace[i]
+        
         self.U_weighted = torch.zeros((self.num_env,num_dof,self.T),dtype=torch.float32, device=self.device)
         self.delta_U = torch.zeros((self.num_env,num_dof,self.T),dtype=torch.float32, device=self.device)  # sequence of actions
         self.stored_u = []                                                                      # Stored u value to execute
@@ -28,7 +32,7 @@ class MPPI():
         self.noise_sigma_inv = torch.inverse(self.sigma_noise)                                  # Inverse of noise covariance
         self.tracked_dofs=tracked_dofs                                                          # Dof's to track with costs
         self.tracked_root=tracked_root                                                          # Root Dof's to track with costs
-        self._lambda = 10.
+        self._lambda = 1000.
         self.q_hat = torch.zeros((self.num_env,self.T),dtype=torch.float32, device=self.device) 
         
         # self.gym.prepare_sim(self.sim)                                                          
@@ -65,7 +69,7 @@ class MPPI():
         '''
         Calculate the running costs 
         '''
-        q=500.*self.tracked_states_vec[:,1]**2
+        q=500.*(1-torch.cos(self.tracked_states_vec[:,1]))**2+10*self.tracked_states_vec[:,2]**2
         
         # q = torch.bmm(torch.bmm(self.tracked_states_vec.mT,self.Q),self.tracked_states_vec).flatten()
         # q+=(1-1/self.nu)/2*torch.bmm(torch.bmm(delta_u.mT,self.R),delta_u).flatten()
@@ -76,7 +80,7 @@ class MPPI():
         '''
         Calculate the final costs 
         '''
-        q=500.*self.tracked_states_vec[:,1]**2
+        q=500.*(1-torch.cos(self.tracked_states_vec[:,1]))**2
         # q = torch.bmm(torch.bmm(self.tracked_states_vec.mT,self.Q),self.tracked_states_vec).flatten()
         # q+=(1-1/self.nu)/2*torch.bmm(torch.bmm(delta_u.mT,self.R),delta_u).flatten()
         # q+=torch.bmm(torch.bmm(u.mT,self.R),delta_u).flatten()+1/2*torch.bmm(torch.bmm(u.mT,self.R),u).flatten()
@@ -107,23 +111,24 @@ class MPPI():
             self.gym.simulate(self.sim)
             self._refresh_state()
             self.rec_state[:,:,i]=self.dof_states_vec[:,:,0]
-            if i < self.T-1:
+            if i ==0:
                 self.running_weight[:,i]=self._running_costs(self.delta_U[:,self.active_index,i:i+1],self.U[:,self.active_index,i:i+1])
-                # self.q_hat[:,i]=torch.exp(-1/self._lambda*self.running_weight[:,i])
-                # running_weight+=torch.sum(self._running_costs(self.delta_U[:,self.active_index,i:i+1],self.U[:,self.active_index,i:i+1]))
+            #     # self.q_hat[:,i]=torch.exp(-1/self._lambda*self.running_weight[:,i])
+            #     # running_weight+=torch.sum(self._running_costs(self.delta_U[:,self.active_index,i:i+1],self.U[:,self.active_index,i:i+1]))
             else:
-                self.running_weight[:,i]=self._final_costs(self.delta_U[:,self.active_index,i:i+1],self.U[:,self.active_index,i:i+1])
+                self.running_weight[:,i]=self.running_weight[:,i-1]+self._running_costs(self.delta_U[:,self.active_index,i:i+1],self.U[:,self.active_index,i:i+1])
                 # self.q_hat[:,i]=torch.exp(-1/self._lambda*self.running_weight[:,i])
                 # running_weight+=torch.sum(self.q_hat[:,i])
             # for j, act_j in enumerate(self.active_index):
             #     self.U_weighted[:,act_j,i]= self.q_hat[:,i]*self.delta_U[:,act_j,i]
-        self.q_hat=torch.exp(-1/self._lambda*(self.running_weight-torch.min(self.running_weight)))
+            # self.q_hat[:,i]=torch.exp(-1/self._lambda*(self.running_weight[:,i]-torch.min(self.running_weight[:,i])))
+            self.q_hat[:,i]=torch.exp(-1/self._lambda*(self.running_weight[:,i]))
         for i in range(self.T):
             for j, act_j in enumerate(self.active_index):
                 self.U_weighted[:,act_j,i]= self.q_hat[:,i]*self.delta_U[:,act_j,i]  
 
         for i in range(self.T):
-            self.U[:,:,i]+=torch.sum(self.U_weighted[:,:,i],0)/(torch.sum(self.q_hat[:,i]))
+            self.U[:,:,i]+=torch.sum(self.U_weighted[:,:,i],0)/(torch.sum(self.q_hat[:,i])+10**-30)
 
             # for j in range(self.act_num_dof):
             #     self.running_costs[:,j]+=torch.mul(costs,self.delta_U[:,self.active_index[j],i])

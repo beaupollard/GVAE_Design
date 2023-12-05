@@ -165,10 +165,13 @@ def build_links(sim,link_length,link_height,joint_length):
     link_dim=[[link_length,0.135,link_height],[0.0075,0.135,0.02],[0.02,0.014,0.0255]]
     link_location=[0.,0.,-link_height/2.1-link_dim[1][2]/2.1]
     l0=sim.createPrimitiveShape(sim.primitiveshape_cuboid,link_dim[0])
+    sim.setShapeColor(l0,'',sim.colorcomponent_ambient_diffuse,[0,0,0])
     l1=sim.createPrimitiveShape(sim.primitiveshape_cuboid,link_dim[1])
+    sim.setShapeColor(l1,'',sim.colorcomponent_ambient_diffuse,[0,0,0])
     l2=[]
     for i in range(3):
         l2.append(sim.createPrimitiveShape(sim.primitiveshape_cuboid,link_dim[2]))
+        sim.setShapeColor(l2[-1],'',sim.colorcomponent_ambient_diffuse,[0,0,0])
         
     sim.setObjectPosition(l1,l0,link_location)
     sim.setObjectPosition(l2[0],l0,[0.,0.0491,link_height/2.1+link_dim[2][2]/2.1])
@@ -199,6 +202,8 @@ def build_track_wheels(sim,t0,t1,num_links_circ,radius):
 
     w0=sim.createPrimitiveShape(sim.primitiveshape_cylinder,[2*radius,2*radius,0.02553])
     w1=sim.createPrimitiveShape(sim.primitiveshape_cylinder,[2*radius,2*radius,0.02553])
+    sim.setShapeColor(w0,'',sim.colorcomponent_ambient_diffuse,[0,0,1])
+    sim.setShapeColor(w1,'',sim.colorcomponent_ambient_diffuse,[0,0,1])
     sim.setObjectInt32Param(w0,sim.shapeintparam_static,0)
     sim.setObjectInt32Param(w0,sim.shapeintparam_respondable,1)
     sim.setObjectInt32Param(w1,sim.shapeintparam_static,0)
@@ -236,6 +241,7 @@ def build_wheels(sim,radius,current_body,jlocation=[0,0,0],width=0.075):
 
     ## Build the wheel ##
     w0=sim.createPrimitiveShape(sim.primitiveshape_cylinder,[2*radius,2*radius,width])
+    sim.setShapeColor(w0,'',sim.colorcomponent_ambient_diffuse,[0.5,0.5,0.5])
     sim.setObjectInt32Param(w0,sim.shapeintparam_static,0)
     sim.setObjectInt32Param(w0,sim.shapeintparam_respondable,1)  
 
@@ -256,6 +262,7 @@ def build_wheels(sim,radius,current_body,jlocation=[0,0,0],width=0.075):
         treads.append(sim.createPrimitiveShape(sim.primitiveshape_cuboid,[tread_height,width,tread_length]))
         sim.setObjectQuaternion(treads[i],treads[i],[0.,-math.sin(theta[i]/2),0.,math.cos(theta[i]/2)])
         sim.setObjectPosition(treads[i],w0,[lt*math.cos(theta[i]),lt*math.sin(theta[i]),0])
+        sim.setShapeColor(treads[-1],'',sim.colorcomponent_ambient_diffuse,[0,0,0])
     treads.append(w0)
     Rw=sim.groupShapes(treads)
     left_side=sim.copyPasteObjects([j0,Rw],0)

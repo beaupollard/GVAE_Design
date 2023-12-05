@@ -54,8 +54,9 @@ def run_multi(ii):
     while True:
         num_props=0
         while num_props<2:
-            con=graph_gens()
+            con=graph_gens(seed_in=1)
             num_props, nodes=con.generate_concept()
+            print(nodes)
         # x_current, edge_current = utils.convert2tensor(nodes)
         
         joints, body_id, x_current, edge_current, nodes = utils.build_vehicles(sim,nodes)

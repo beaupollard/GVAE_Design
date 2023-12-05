@@ -55,7 +55,7 @@ def get_gauss_rand(in_mean,in_std=0,l_lim=-1000000,u_lim=1000000):
     return outp
 
 class graph_gens():
-    def __init__(self):
+    def __init__(self,seed_in=0):
         self.nodes=[]
         self.node_attributes=[]
         self.edge_index=[]
@@ -63,6 +63,8 @@ class graph_gens():
         self.joint_nodes={"name":"joint","location": [0, 0, 0],"orientation":[0,0,0],"active":[],"childern": [],"parents": [],"index":1}
         self.prop_nodes={"name":"prop","location": [0, 0, 0],"radius":0,"childern": [],"parents": [],"type":'none'}
         self.num_propulsors=0
+        np.random.seed(seed=seed_in)
+        random.seed(seed_in)
 
     def generate_concept(self):
         ## Determine number of bodies ##

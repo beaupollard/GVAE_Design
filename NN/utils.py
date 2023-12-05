@@ -81,27 +81,27 @@ def input_vectors(edges,nodes,results,num_bodies=4,num_body_reals=3,num_prop_rea
     return data
             
 def create_dataset():
-    num_in=[17,18,19,20]#,6]
+    num_in=[10,39,43,44]#,6]
     run_num=[0,1,2,3]
     nodes=[]
     edges=[]
     results=[]
-    path='../results/01_29_2023/'
+    path='../results/Current_Results/'
     for i in num_in:
         for j in run_num:
             if len(nodes)==0:
-                nodes=read_inputs(path+'nodes'+str(i)+'_'+str(j)+'.txt',[])
-                edges=read_inputs(path+'edges'+str(i)+'_'+str(j)+'.txt',[])
+                nodes=read_inputs(path+'nodes'+str(39)+'_'+str(j)+'.txt',[])
+                edges=read_inputs(path+'edges'+str(10)+'_'+str(j)+'.txt',[])
                 results=read_inputs(path+'results'+str(i)+'_'+str(j)+'.txt',[])
             else:
-                if i==13 and j==1:
-                    pass
-                else:
-                    nodes=read_inputs(path+'nodes'+str(i)+'_'+str(j)+'.txt',nodes)
-                    edges=read_inputs(path+'edges'+str(i)+'_'+str(j)+'.txt',edges)
-                    results=read_inputs(path+'results'+str(i)+'_'+str(j)+'.txt',results)
-                if len(results)!=len(edges):
-                    print(i)
+                # if i==13 and j==1:
+                #     pass
+                # else:
+                nodes=read_inputs(path+'nodes'+str(39)+'_'+str(j)+'.txt',nodes)
+                edges=read_inputs(path+'edges'+str(10)+'_'+str(j)+'.txt',edges)
+                results=read_inputs(path+'results'+str(i)+'_'+str(j)+'.txt',results)
+            # if len(results)!=len(edges):
+            #     print(i)
     return input_vectors(edges,nodes,results)
 
 def create_vehicles(x_reals,x_ints,num_bodies=4,num_body_reals=3,num_prop_reals=4,num_joint_reals=4,num_prop_ints=4,num_joint_ints=3):

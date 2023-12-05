@@ -12,8 +12,8 @@ import torch
 
 BS=10*1028
 percent_train=0.8
-# d1=util.create_dataset()
-# torch.save(d1,'datatest4.pt')
+d1=util.create_dataset()
+torch.save(d1,'data12052023.pt')
 d1=torch.load('datatest4.pt')#smd.run_sim(run_nums=2,out_data=2,num_repeats=1)
 train=torch.utils.data.DataLoader(d1,batch_size=BS, shuffle=True)
 test=torch.utils.data.DataLoader(d1,batch_size=len(d1), shuffle=False)

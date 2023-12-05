@@ -21,6 +21,7 @@ class VAE(nn.Module):
         self.flatten = nn.Flatten()
         self.latent_dim=latent_dim
         self.body_num=4
+        self.q_prior=torch.distributions.Normal(0.,1.)
         self.performance_out=performance_out
         self.linear_relu_stack = nn.Sequential(
             nn.Linear(input_height, 2*hidden_layers),
@@ -198,7 +199,8 @@ class VAE(nn.Module):
             # recon_loss_ints = 1.*F.binary_cross_entropy_with_logits(x_ints,i[:,40:])
             # recon_loss_ints = 500.*F.cross_entropy(x_ints,i[:,40:])
             # recon_loss = self.gaussian_likelihood(torch.cat((x_reals,x_ints),dim=1), self.log_scale, i[0])#F.mse_loss(z,zhat)-F.mse_loss(x_hat,x)#
-            kl = (self.kl_divergence(z, mu, std)*self.kl_weight).mean()
+            #kl = (self.kl_divergence(z, mu, std)*self.kl_weight).mean()
+            kl = torch.distributions.kl.kl_divergence(q, self.q_prior).sum(1).mean()*self.kl_weight
             # recon_loss_ints=self.int_loss(body_id,prop_id,joint_id,i[:,40:])
             elbo=(kl+recon_loss_reals+recon_loss_ints+recon_perf)
 

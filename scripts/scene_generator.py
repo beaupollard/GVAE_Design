@@ -53,11 +53,12 @@ def run_multi(ii):
     step_height=[6.5/39.39]#[5.5/39.39,6.5/39.39,7.5/39.39]
     slope=[28.0]#[25,32.5,40]
     seed_start=[0,10000,20000,30000,40000]
+    con=graph_gens(seed_in=seed_start[ii]+7)
     for jj in range(10000):
     # while True:
         num_props=0
         while num_props<2:
-            con=graph_gens(seed_in=jj+seed_start[ii]+3)
+            con.reset()
             num_props, nodes=con.generate_concept()
             # print(nodes)
         # x_current, edge_current = utils.convert2tensor(nodes)
@@ -77,6 +78,7 @@ def run_multi(ii):
                     count_save=0
                 else:
                     count_save+=1
+        nodes=[]
         sim.closeScene()
         print(ii, count)
 

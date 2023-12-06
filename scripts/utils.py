@@ -115,7 +115,7 @@ def generate_tracks(sim,radius,wheel_base,current_body,jlocation=[0,0,0]):
 
     ## Build rotational track support ##
     length_s=(abs(wheel_base)-2.05*radius)/2
-    support_size=[radius/1.5,radius/1.5,0.015]
+    support_size=[radius/1.5,radius/1.5,0.01]
     s0=sim.createPrimitiveShape(sim.primitiveshape_cylinder,support_size)
     sim.setObjectQuaternion(s0,s0,[math.sin(math.pi/4),0.,0.,math.cos(math.pi/4)])
     sim.setObjectInt32Param(s0,sim.shapeintparam_respondable,1)   
@@ -334,7 +334,7 @@ def build_planet_wheels(sim,radius,current_body,jlocation=[0,0,0],joint_type='fi
     set_joint_mode(sim,[j0,lw[1]],j_spring=[],jtype='velocity')
     return j0, lw[1]
 
-def set_joint_mode(sim,j0,j_spring=[],jtype='force',max_torque=150.):
+def set_joint_mode(sim,j0,j_spring=[],jtype='force',max_torque=50.):
     for i in j0:
         if jtype=='force':
             sim.setObjectInt32Param(i,sim.jointintparam_dynctrlmode,sim.jointdynctrl_force)    

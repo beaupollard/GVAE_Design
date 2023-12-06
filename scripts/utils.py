@@ -47,11 +47,11 @@ def generate_tracks(sim,radius,wheel_base,current_body,jlocation=[0,0,0]):
     joint_length=track_length/(2*num_tracks)#1/num_tracks*(track_length-num_tracks*link_width/2)# calculate new joint lengths
 
     ## Adjust joint length so that distances are consistent ##
-    sim.setObjectPosition(track_joints[0],track_links[0],[0,joint_length,0])
+    sim.setObjectPosition(track_joints[0],track_links[0],[joint_length,0,0])
     
     # ## Get Dummy Ids ##
-    sim.setObjectPosition(dummy_ids[0],track_links[0],[0,-joint_length,0])
-    sim.setObjectPosition(dummy_ids[1],track_links[0],[0,-joint_length,0])
+    sim.setObjectPosition(dummy_ids[0],track_links[0],[-joint_length,0,0])
+    sim.setObjectPosition(dummy_ids[1],track_links[0],[-joint_length,0,0])
 
     ## Copy and paste the required number of links ##
     for i in range(num_tracks-1):
@@ -148,7 +148,7 @@ def generate_tracks(sim,radius,wheel_base,current_body,jlocation=[0,0,0]):
     collision, _ = sim.checkCollision(s1,Rw1)
     if collision==0:
         s0 = sim.copyPasteObjects([s1],0)
-        sim.setObjectPosition(s0[0],s1,[0.05,0.,0.])
+        sim.setObjectPosition(s0[0],s1,[0,0,0.05])
 
         s2 = sim.copyPasteObjects([s0[0],s1],0)
         sim.setObjectPosition(s2[0],-1,[sim.getObjectPosition(s0[0],-1)[0],-sim.getObjectPosition(s0[0],-1)[1],sim.getObjectPosition(s0[0],-1)[2]])
@@ -182,11 +182,13 @@ def build_links(sim,link_length,link_height,joint_length):
     track_link=sim.groupShapes(l2)
     joint_link=sim.createJoint(sim.joint_revolute_subtype,sim.jointmode_dynamic,0,[0.055,0.015])
     sim.setObjectQuaternion(joint_link,joint_link,[math.sin(math.pi/4),0,0,math.cos(math.pi/4)])
-    sim.setObjectPosition(joint_link,track_link,[0.0,0.034,0])
+    sim.setObjectPosition(joint_link,track_link,[0.034,0.0,0])
     sim.setObjectParent(joint_link,track_link,True)
     dummy=[]
     dummy.append(sim.createDummy(0.01))
     dummy.append(sim.createDummy(0.01))
+    sim.setObjectInt32Param(dummy[0], sim.dummyintparam_dummytype, sim.dummytype_dynloopclosure)
+    sim.setObjectInt32Param(dummy[1], sim.dummyintparam_dummytype, sim.dummytype_dynloopclosure)
     sim.setLinkDummy(dummy[0],dummy[1])
     sim.setObjectParent(dummy[0],track_link,True)
     sim.setObjectParent(dummy[1],track_link,True)
@@ -210,8 +212,8 @@ def build_track_wheels(sim,t0,t1,num_links_circ,radius):
     sim.setObjectInt32Param(w1,sim.shapeintparam_respondable,1)
     sim.setObjectQuaternion(w0,w0,[math.sin(math.pi/4),0,0,math.cos(math.pi/4)])
     sim.setObjectQuaternion(w1,w1,[math.sin(math.pi/4),0,0,math.cos(math.pi/4)])
-    sim.setObjectPosition(w0,t0,[radius,0,0.0491/2])
-    sim.setObjectPosition(w1,t0,[radius,0,-0.0491/2])
+    sim.setObjectPosition(w0,t0,[0,0.0491/2,radius])
+    sim.setObjectPosition(w1,t0,[0,-0.0491/2,radius])
     theta=np.linspace(0,2*math.pi,2*num_links_circ+1)
     rc=radius-0.005
     spokes=[]
@@ -227,7 +229,7 @@ def build_track_wheels(sim,t0,t1,num_links_circ,radius):
     wt=sim.groupShapes(spokes)
     j0=sim.createJoint(sim.joint_revolute_subtype,sim.jointmode_dynamic,0,[0.075,0.025])
     sim.setObjectQuaternion(j0,j0,[math.sin(math.pi/4),0,0,math.cos(math.pi/4)])
-    sim.setObjectPosition(j0,wt,[0,0,0])
+    sim.setObjectPosition(j0,wt,[0,0,-0.0491/2])
     sim.setObjectParent(wt,j0,True)
     wt2=sim.copyPasteObjects([j0,wt],0)
     j1=wt2[0]

@@ -1,5 +1,6 @@
 import time
-from zmqRemoteApi import RemoteAPIClient
+# from zmqRemoteApi import RemoteAPIClient
+from coppeliasim_zmqremoteapi_client import RemoteAPIClient
 import numpy as np
 import math
 import copy
@@ -22,7 +23,7 @@ def steering(sim,body_id,motor_ids,radius,velo):
 def end_sim(sim,final_pos,body_id):
     pin=sim.getObjectPosition(body_id,-1)
     pin_ori=sim.getObjectOrientation(body_id,-1)
-    if pin_ori[1]*180/math.pi>85 or pin_ori[1]*180/math.pi<-10:
+    if pin_ori[1]*180/math.pi>85 or pin_ori[1]*180/math.pi<-50:
         return True, pin
     if pin[0]<final_pos[0] and pin[2]>final_pos[1]:
         return True, pin
@@ -56,6 +57,7 @@ def main_run(motor_ids,body_id,nodes,final_pos,client,sim):
     torque=[]
 
     # client.setStepping(True)
+    sim.setStepping(True)
     sim.startSimulation()
 
     end_sim_var=False
@@ -63,7 +65,7 @@ def main_run(motor_ids,body_id,nodes,final_pos,client,sim):
 
     ## Run simulation ##
     while end_sim_var==False:
-        # client.step()
+        sim.step()
         steering(sim,body_id,motor_ids,radius,velo)
         torque_rec(sim,motor_ids,torque)
         success, pin = end_sim(sim,final_pos,body_id)

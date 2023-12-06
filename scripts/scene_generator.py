@@ -1,5 +1,6 @@
 import time
-from zmqRemoteApi import RemoteAPIClient
+from coppeliasim_zmqremoteapi_client import RemoteAPIClient
+# from zmqRemoteApi import RemoteAPIClient
 import utils
 import numpy as np
 import math
@@ -39,6 +40,7 @@ def run_multi(ii):
     ports = [23000,23002,23004,23006]
     client = RemoteAPIClient(port=ports[ii])
     sim = client.getObject('sim')
+    # sim = client.require('sim')
     motors=[]
     sim.closeScene()
     # sim.setBoolParam(sim.boolparam_display_enabled,False)
@@ -50,13 +52,14 @@ def run_multi(ii):
     count_save=0
     step_height=[6.5/39.39]#[5.5/39.39,6.5/39.39,7.5/39.39]
     slope=[28.0]#[25,32.5,40]
-    # for i in range(100):
-    while True:
+    seed_start=[0,10000,20000,30000,40000]
+    for jj in range(10000):
+    # while True:
         num_props=0
         while num_props<2:
-            con=graph_gens(seed_in=1)
+            con=graph_gens(seed_in=jj+seed_start[ii]+3)
             num_props, nodes=con.generate_concept()
-            print(nodes)
+            # print(nodes)
         # x_current, edge_current = utils.convert2tensor(nodes)
         
         joints, body_id, x_current, edge_current, nodes = utils.build_vehicles(sim,nodes)
@@ -79,7 +82,7 @@ def run_multi(ii):
 
 run_multi(0)
 # processes = []
-# for i in range(4):
+# for i in range(2):
 #     p = Process(target=run_multi, args=(i,))
 #     p.start()
 #     processes.append(p)

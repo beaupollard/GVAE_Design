@@ -10,6 +10,7 @@ import copy
 import numpy as np
 import json
 from multiprocessing import Process
+import envs_for_beau as env_util
 
 def save_results(x_rec,edge_rec,sim_results,num,run_num):
     with open('nodes'+str(num)+'_'+str(run_num)+'.txt', 'w') as convert_file:
@@ -53,7 +54,7 @@ def run_multi(ii):
     step_height=[6.5/39.39]#[5.5/39.39,6.5/39.39,7.5/39.39]
     slope=[28.0]#[25,32.5,40]
     seed_start=[0,10000,20000,30000,40000]
-    con=graph_gens(seed_in=seed_start[ii]+7)
+    con=graph_gens(seed_in=seed_start[ii])
     for jj in range(10000):
     # while True:
         num_props=0
@@ -66,15 +67,16 @@ def run_multi(ii):
         joints, body_id, x_current, edge_current, nodes = utils.build_vehicles(sim,nodes)
         for j in step_height:
             for i in slope:
-                final_pos, _, _, b0 = utils.build_steps(sim,25,j,i)
-                success, time_sim, ave_torque, max_torque, pin = main_run(np.array(joints).flatten(),body_id,nodes,final_pos,client,sim)
+                # final_pos, _, b0 = env_util.build_slope(sim,25)#utils.build_steps(sim,25,j,i)
+                final_pos, _, _, b0=env_util.build_gaussian_field(sim)
+                success, time_sim, ave_torque, max_torque, ave_power, max_power, pin = main_run(np.array(joints).flatten(),body_id,nodes,final_pos,client,sim)
                 sim.removeObject(b0)
-                sim_results.append([success,time_sim,ave_torque,max_torque,pin[0],pin[1],pin[2],j,i])
+                sim_results.append([success,time_sim,ave_torque,max_torque,ave_power,max_power,pin[0],pin[1],pin[2],j,i])
                 x_rec.append(copy.copy(x_current))#, edge_current
                 edge_rec.append(copy.copy(edge_current))
                 count+=1
                 if count_save==10:
-                    save_results(x_rec,edge_rec,sim_results,20,ii)
+                    save_results(x_rec,edge_rec,sim_results,21,ii)
                     count_save=0
                 else:
                     count_save+=1

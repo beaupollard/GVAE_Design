@@ -30,11 +30,13 @@ def end_sim(sim,final_pos,body_id):
     else:
         return False, pin
 
-def torque_rec(sim,motor_ids,torque):
+def torque_rec(sim,motor_ids,torque,power):
     tor=[]
+    pow=[]
     for i in motor_ids:
         tor.append(sim.getJointForce(i.item()))
-    return torque.append(tor)
+        pow.append((sim.getJointForce(i.item())*60*sim.getJointVelocity(i.item())/(2*math.pi))/9.5488)
+    return torque.append(tor), power.append(pow)
 
 def set_radius(nodes):
     radius=[]
@@ -55,7 +57,8 @@ def main_run(motor_ids,body_id,nodes,final_pos,client,sim):
     radius=set_radius(nodes)
     velo=15. 
     torque=[]
-
+    power=[]
+    sim.setInt32Parameter(sim.intparam_dynamic_engine,sim.physics_mujoco)
     # client.setStepping(True)
     sim.setStepping(True)
     sim.startSimulation()
@@ -67,7 +70,7 @@ def main_run(motor_ids,body_id,nodes,final_pos,client,sim):
     while end_sim_var==False:
         sim.step()
         steering(sim,body_id,motor_ids,radius,velo)
-        torque_rec(sim,motor_ids,torque)
+        torque_rec(sim,motor_ids,torque,power)
         success, pin = end_sim(sim,final_pos,body_id)
         if success==True or sim.getSimulationTime()>30.:
             time=sim.getSimulationTime()
@@ -88,4 +91,5 @@ def main_run(motor_ids,body_id,nodes,final_pos,client,sim):
     # err1=sim.simxFinish(sim_scene.clientID) # Connect to CoppeliaSim
     # # print(err0,err1)
     sum_torque=[sum(abs(np.array(torque)[i,:])) for i in range(len(torque))]
-    return success, time, sum(sum_torque)/len(sum_torque), max(sum_torque), pin
+    sum_power=[sum(abs(np.array(power)[i,:])) for i in range(len(power))]
+    return success, time, sum(sum_torque)/len(sum_torque), max(sum_torque), sum(sum_power)/len(sum_power), max(sum_power), pin

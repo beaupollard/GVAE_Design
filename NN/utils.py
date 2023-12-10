@@ -28,7 +28,7 @@ def read_inputs(filename,output):
         
     return output
 
-def input_vectors(edges,nodes,results,num_bodies=4,num_body_reals=3,num_prop_reals=4,num_joint_reals=4,num_prop_ints=4,num_joint_ints=3):
+def input_vectors(edges,nodes,results,terrains,num_bodies=4,num_body_reals=3,num_prop_reals=4,num_joint_reals=4,num_prop_ints=4,num_joint_ints=3):
     data=[]
     for i, edge in enumerate(edges):
         body_reals=np.zeros(num_bodies*num_body_reals)
@@ -70,39 +70,54 @@ def input_vectors(edges,nodes,results,num_bodies=4,num_body_reals=3,num_prop_rea
         reals=np.hstack((np.hstack((body_reals,prop_reals)),joint_reals[:(num_bodies-1)*num_joint_reals]))
         body_ints[body_count-2]=1
         ints=np.hstack((np.hstack((body_ints,prop_ints)),joint_ints[:(num_bodies-1)*num_joint_ints]))
-        x=torch.tensor(np.hstack((reals,ints)),dtype=torch.float)
-        y=torch.tensor(results[i],dtype=torch.float)
-        if y[4]>0. or y[6]<0.:
-            pass
-        else:
-            data.append([x,y])
+        x=torch.tensor(np.hstack((np.hstack((reals,ints)),terrains[i])),dtype=torch.float)
+        # x=torch.tensor(np.hstack((reals,ints)),dtype=torch.float)
+        out_results=np.zeros((5))
+        out_results[:4]=np.array(results[i][2:6])
+        out_results[-1]=-results[i][6]/(results[i][1]+0.1)*100
+        y=torch.tensor(out_results,dtype=torch.float)
+        # y=torch.tensor(results[i],dtype=torch.float)
+        # if y[4]>0. or y[6]<0.:
+        #     pass
+        # else:
+        data.append([x,y])
 
     # torch.save(data,os.path.join('./','data.pt'))
     return data
             
 def create_dataset():
-    num_in=[10,39,43,44]#,6]
-    run_num=[0,1,2,3]
+    # num_in=[10,39,43,44]#,6]
+    # run_num=[0,1,2,3]
+    node_files=['nodes_rough','nodes_steps','nodes_slope']
+    edge_files=['edges_rough','edges_steps','edges_slope']
+    result_files=['results_rough','results_steps','results_slope']
+    terrain_files=['field2_z.npy','stairs_z.npy','slope_z.npy']
     nodes=[]
     edges=[]
     results=[]
-    path='../results/Current_Results/'
-    for i in num_in:
-        for j in run_num:
-            if len(nodes)==0:
-                nodes=read_inputs(path+'nodes'+str(39)+'_'+str(j)+'.txt',[])
-                edges=read_inputs(path+'edges'+str(10)+'_'+str(j)+'.txt',[])
-                results=read_inputs(path+'results'+str(i)+'_'+str(j)+'.txt',[])
-            else:
-                # if i==13 and j==1:
-                #     pass
-                # else:
-                nodes=read_inputs(path+'nodes'+str(39)+'_'+str(j)+'.txt',nodes)
-                edges=read_inputs(path+'edges'+str(10)+'_'+str(j)+'.txt',edges)
-                results=read_inputs(path+'results'+str(i)+'_'+str(j)+'.txt',results)
-            # if len(results)!=len(edges):
-            #     print(i)
-    return input_vectors(edges,nodes,results)
+    t_rec=[]
+    terrains=np.zeros((3,128))
+    path='../results/12_10_2023/'
+    for i in range(len(node_files)):
+        terrains[i,:]=np.load(path+terrain_files[i])
+        if len(nodes)==0:
+            nodes=read_inputs(path+node_files[i]+'.txt',[])
+            edges=read_inputs(path+edge_files[i]+'.txt',[])
+            results=read_inputs(path+result_files[i]+'.txt',[])
+            for j in range(7491):
+                t_rec.append(terrains[i,:])
+            
+        else:
+            # if i==13 and j==1:
+            #     pass
+            # else:
+            nodes=read_inputs(path+node_files[i]+'.txt',nodes)
+            edges=read_inputs(path+edge_files[i]+'.txt',edges)
+            results=read_inputs(path+result_files[i]+'.txt',results)
+            for j in range(7491):
+                t_rec.append(terrains[i,:])
+
+    return input_vectors(edges,nodes,results,t_rec)
 
 def create_vehicles(x_reals,x_ints,num_bodies=4,num_body_reals=3,num_prop_reals=4,num_joint_reals=4,num_prop_ints=4,num_joint_ints=3):
     ## Determine the number of bodies ##

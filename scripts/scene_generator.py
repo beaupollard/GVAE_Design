@@ -55,7 +55,7 @@ def run_multi(ii):
     slope=[28.0]#[25,32.5,40]
     seed_start=[0,10000,20000,30000,40000]
     con=graph_gens(seed_in=seed_start[ii])
-    for jj in range(10000):
+    for jj in range(7500):
     # while True:
         num_props=0
         while num_props<2:

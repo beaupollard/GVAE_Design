@@ -67,8 +67,10 @@ def run_multi(ii):
         joints, body_id, x_current, edge_current, nodes = utils.build_vehicles(sim,nodes)
         for j in step_height:
             for i in slope:
-                # final_pos, _, b0 = env_util.build_slope(sim,25)#utils.build_steps(sim,25,j,i)
-                final_pos, _, _, b0=env_util.build_gaussian_field(sim)
+                # final_pos, _, _, b0=env_util.build_steps(sim)
+                # final_pos, _, b0 = env_util.build_slope(sim,25)
+                # final_pos, _, _, b0=env_util.build_gaussian_field(sim)
+                final_pos, _, _, b0=env_util.build_rough_slope(sim)
                 success, time_sim, ave_torque, max_torque, ave_power, max_power, pin = main_run(np.array(joints).flatten(),body_id,nodes,final_pos,client,sim)
                 sim.removeObject(b0)
                 sim_results.append([success,time_sim,ave_torque,max_torque,ave_power,max_power,pin[0],pin[1],pin[2],j,i])

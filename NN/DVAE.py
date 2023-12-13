@@ -6,15 +6,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
+from sklearn.gaussian_process import GaussianProcessRegressor
+from sklearn.gaussian_process.kernels import RBF
 import copy
 
 class VAE(nn.Module):
-    def __init__(self, enc_out_dim=68, latent_dim=16, input_height=68+128,lr=2e-3,hidden_layers=64,dec_hidden_layers=128,performance_out=5,env_inputs=128):
+    def __init__(self, enc_out_dim=68, latent_dim=16, input_height=68+128,lr=2e-3,hidden_layers=64,dec_hidden_layers=128,performance_out=3,env_inputs=128):
         super(VAE, self).__init__()
         self.reals_weight=1.
         self.ints_weight=1.
         self.kl_weight=1.
-        self.perf_weight=1.
+        self.perf_weight=1000.
         self.dec_hidden_layers=dec_hidden_layers
         self.lr=lr
         self.count=0
@@ -45,7 +47,7 @@ class VAE(nn.Module):
         self.decoder_rnn_hidden = nn.Linear(dec_hidden_layers, dec_hidden_layers)
         # self.decoder_props_hidden = nn.RNN(input_size=latent_dim, hidden_size=hidden_layers,batch_first=False)
         self.performance_predict = nn.Sequential(
-            nn.Linear(latent_dim+env_inputs,hidden_layers),
+            nn.Linear(latent_dim,hidden_layers),
             nn.Tanh(),
             nn.Linear(hidden_layers,hidden_layers),
             nn.Tanh(),
@@ -88,7 +90,20 @@ class VAE(nn.Module):
         self.decoder_prop_id3= nn.Sequential(
             nn.Linear(dec_hidden_layers, 4),
             nn.Softmax()
-        )         
+        )
+        self.org = nn.Sequential(
+            nn.Linear(128+performance_out, 128),
+            nn.Tanh(),#nn.ReLU(),
+            # nn.Linear(128, latent_dim),
+        )  
+        self.org_mu = nn.Sequential(
+            nn.Linear(128, latent_dim),
+            # nn.Tanh()
+        )
+        self.org_logstd = nn.Sequential(
+            nn.Linear(128, latent_dim),
+            # nn.ReLU()
+        )       
         # for the gaussian likelihood
         self.log_scale = nn.Parameter(torch.Tensor([0.0]))
         self.optimizer=self.configure_optimizers(lr=lr)
@@ -107,6 +122,12 @@ class VAE(nn.Module):
         logstd = torch.exp(self.linear_logstd(logits)/2)
         # z = self.reparametrize(mu,logstd)
         return logits, mu, logstd
+
+    def org_forward(self,x):
+        logits = self.org(x)
+        mu = self.org_mu(logits)
+        logstd = torch.exp(self.org_logstd(logits)/2)
+        return mu, logstd
 
     def decoder(self,z):
         h0=torch.zeros(self.dec_hidden_layers).to(z.device)
@@ -174,7 +195,7 @@ class VAE(nn.Module):
     #     return recon_loss_ints
 
     def training_step(self, batch,device):
-        running_loss=[0.,0.,0.,0.]
+        running_loss=[0.,0.,0.,0.,0.]
         # if self.count==1000:
         #     self.lr=self.lr/5
         #     self.configure_optimizers(lr=self.lr)
@@ -182,8 +203,11 @@ class VAE(nn.Module):
         for i in iter(batch):
             # i.to(device)
             self.optimizer.zero_grad()
+       
             x = i[0].to(device)
             y = i[1].to(device)
+            user_weights=torch.rand((len(x),3),dtype=torch.float,device=device)
+            user_weights[:,:-1]*=-1.                 
             # encode x to get the mu and variance parameters
             _, mu, std = self.forward(x)
 
@@ -194,15 +218,29 @@ class VAE(nn.Module):
             x_reals, x_ints, body_id, prop_id, joint_id= self.decoder(z)
             recon_loss_ints=self.ints_weight*self.ints_loss(x[:,40:68],x_ints)
             recon_loss_reals = self.reals_weight*F.mse_loss(x_reals,x[:,:40])
-            performance_est=self.performance_predict(torch.cat((z,x[:,68:]),axis=1))
+            performance_est=self.performance_predict(z)
+            # performance_est=self.performance_predict(torch.cat((z,x[:,68:]),axis=1))
             recon_perf = self.perf_weight*F.mse_loss(performance_est,y)
+
+            zorg, orgstd = self.org_forward(torch.cat((user_weights,x[:,68:]),dim=1))
+            qorg=torch.distributions.Normal(zorg, orgstd)
+            # zorg = self.org(torch.cat((user_weights,x[:,68:]),dim=1))
+            # Predict performance
+            performance_org=self.performance_predict(qorg.rsample())
+
+            ## find robots that did best here
+
+
+            ## just try to maximize the reward function
+            results=-0.1*torch.sum(torch.mul(performance_org,user_weights),dim=1)
+            results+=torch.distributions.kl.kl_divergence(qorg, self.q_prior).sum(1).mean()*self.kl_weight
             # recon_loss_ints = 1.*F.binary_cross_entropy_with_logits(x_ints,i[:,40:])
             # recon_loss_ints = 500.*F.cross_entropy(x_ints,i[:,40:])
             # recon_loss = self.gaussian_likelihood(torch.cat((x_reals,x_ints),dim=1), self.log_scale, i[0])#F.mse_loss(z,zhat)-F.mse_loss(x_hat,x)#
             #kl = (self.kl_divergence(z, mu, std)*self.kl_weight).mean()
             kl = torch.distributions.kl.kl_divergence(q, self.q_prior).sum(1).mean()*self.kl_weight
             # recon_loss_ints=self.int_loss(body_id,prop_id,joint_id,i[:,40:])
-            elbo=(kl+recon_loss_reals+recon_loss_ints+recon_perf)
+            elbo=(kl+recon_loss_reals+recon_loss_ints+recon_perf+results.mean())
 
             elbo.backward()
 
@@ -211,6 +249,7 @@ class VAE(nn.Module):
             running_loss[1] += recon_loss_ints.mean().item()
             running_loss[2] += kl.mean().item()#F.mse_loss(zout,z).item()
             running_loss[3] += recon_perf.mean().item()
+            running_loss[4] += results.mean().item()
             # running_loss[2] += lin_loss.item()
             # lin_ap.append(lin_loss.item())
         self.count+=1
@@ -221,6 +260,63 @@ class VAE(nn.Module):
 # import matplotlib.pyplot as plt
 # plt.plot(x[:,0].detach().numpy())
 # plt.plot(x_hat[:,0].detach().numpy())
+
+    def train_org(self,batch,device):
+        res_out=0
+        for i in iter(batch):
+            self.optimizer.zero_grad()
+            x = i[0].to(device)
+            y = i[1].to(device)
+            BS=1024
+            user_weights=torch.rand((BS,3),dtype=torch.float,device=device)
+            for ii in range(len(user_weights)):
+                user_weights[ii,:]=user_weights[ii,:]/torch.sum(user_weights[ii,:])
+                user_weights[ii,:-1]*=-1.
+
+            with torch.no_grad():
+                _, mu, std = self.forward(x)
+            
+            index_rec=[]
+            for ii in range(BS):
+                res=y*user_weights[ii]
+                index_rec.append(torch.argmax(torch.sum(res,dim=1)).item())
+            
+            zorg, orgstd = self.org_forward(torch.cat((user_weights,x[index_rec,68:]),dim=1))
+            loss=F.mse_loss(mu[index_rec],zorg)
+            loss.backward()
+
+            self.optimizer.step()            
+            # qorg=torch.distributions.Normal(zorg, orgstd)
+
+
+        #     zorg, orgstd = self.org_forward(torch.cat((user_weights,x[:,68:]),dim=1))
+        #     qorg=torch.distributions.Normal(zorg, orgstd)
+        #     # zorg = self.org(torch.cat((user_weights,x[:,68:]),dim=1))
+        #     # Predict performance
+        #     performance_org=self.performance_predict(qorg.rsample())            
+        #     # Generate random weights
+        #     user_weights=torch.rand((len(x),3),dtype=torch.float,device=device)
+        #     user_weights[:,:4]*=-.01
+        #     # user_weights=torch.zeros((len(x),5),dtype=torch.float,device=device)
+        #     # user_weights[:,-1]=1.            
+        #     # user_weights=user_weights/torch.sum(user_weights)
+
+        #     z = self.org(torch.cat((user_weights,x[:,68:]),dim=1))
+            
+        #     # Predict performance
+        #     with torch.no_grad():
+        #         performance_est=self.performance_predict(torch.cat((z,x[:,68:]),axis=1))
+
+        #     ## find robots that did best here
+
+
+        #     ## just try to maximize the reward function
+        #     results=-torch.sum(torch.mul(performance_est,user_weights),dim=1)
+        #     results.mean().backward()
+        #     self.optimizer.step()
+        #     res_out+=results.mean().item()
+        # return res_out
+        return loss.item()
 
     def test(self, batch,device):
         with torch.no_grad():
@@ -288,6 +384,7 @@ class VAE(nn.Module):
         
         return x_reals.detach().numpy(), x_ints.detach().numpy(), i_reals, i_ints
         # return x_reals.item(), x_ints.item()
+    
     def jacobian(self,mu,y,index):
         perf_0=self.performance_predict(torch.cat((mu,y[-2:])))
         dPdz=np.zeros(len(mu))
@@ -366,3 +463,190 @@ class VAE(nn.Module):
         ax.scatter3D(principalComponents[:,0],principalComponents[:,1],performance_est[:,performance_index].detach().numpy())
         ax.scatter3D(principalComponents[highlights,0],principalComponents[highlights,1],performance_est[highlights,performance_index].detach().numpy(),c='k')
         plt.show()      
+
+    def test_org(self,batch,device,user_weight):
+        for i in iter(batch):
+            self.optimizer.zero_grad()
+
+            # torch.no_grad()
+            x = i[0].to(device)
+            y = i[1].to(device)
+            _, mu, std = self.forward(x)
+            user=torch.tile(torch.tensor(user_weight,device=device),(len(y),1))
+            actual_results=torch.sum(torch.mul(y,user),dim=1) 
+            performance_est=self.performance_predict(mu)
+
+            ## Split up the batch
+            split_index=[]
+            for i in range(len(x)-1):
+                if x[i,-128]!=x[i+1,-128]:
+                    split_index.append(i)
+            
+            y_rough=y[:split_index[0],:]
+            x_rough=x[:split_index[0],:]
+            mu_rough=mu[:split_index[0],:]
+
+            y_steps=y[split_index[0]+1:split_index[1],:]
+            x_steps=x[split_index[0]+1:split_index[1],:]
+            mu_steps=mu[split_index[0]+1:split_index[1],:]
+
+            y_slope=y[split_index[1]+1:,:]
+            x_slope=x[split_index[1]+1:,:]
+            mu_slope=mu[split_index[1]+1:,:]
+
+            sort_ind=2
+            sorted_rough, indices_rough = torch.sort(y_rough[:,sort_ind])
+            sorted_steps, indices_steps = torch.sort(y_steps[:,sort_ind])
+            sorted_slope, indices_slope = torch.sort(y_slope[:,sort_ind])
+
+            mu=[mu_rough.to("cpu"),mu_steps.to("cpu"),mu_slope.to("cpu")]
+            x2=[x_rough.to("cpu"),x_steps.to("cpu"),x_slope.to("cpu")]
+            y2=[y_rough.to("cpu"),y_steps.to("cpu"),y_slope.to("cpu")]
+            sort2=[indices_rough.to("cpu"),indices_steps.to("cpu"),indices_slope.to("cpu")]
+
+            
+            index=0
+            # for index in range(3):
+            user_weights=torch.tensor([-0.1,-0.1,0.8],device=device)
+            # zgen = self.org(torch.cat((user_weights,x2[index][0,68:].to(device))))
+            zgen, orgstd = self.org_forward(torch.cat((user_weights,x2[index][0,68:].to(device))))
+            z=StandardScaler().fit_transform(torch.cat((mu[index],zgen.to("cpu").unsqueeze(dim=0))).detach().numpy())
+            # z=StandardScaler().fit_transform(mu[index].detach().numpy())
+            pca = PCA(n_components=2)
+            principalComponents = pca.fit_transform(z)
+
+            x0=principalComponents[sort2[index][-10:].detach().numpy(),0]
+            y0=principalComponents[sort2[index][-10:].detach().numpy(),1]
+            if index==0:
+                plt.plot(principalComponents[:,0],principalComponents[:,1],'.b')
+                plt.plot(x0,y0,'.r')
+                plt.plot(principalComponents[-1,0],principalComponents[-1,1],'xk')
+            elif index==1:
+                plt.plot(principalComponents[:,0],principalComponents[:,1],'.k')
+                plt.plot(x0,y0,'xr')  
+                plt.plot(principalComponents[-1,0],principalComponents[-1,1],'xb')
+            else:
+                plt.plot(principalComponents[:,0],principalComponents[:,1],'.g')
+                plt.plot(principalComponents[-1,0],principalComponents[-1,1],'xr')
+                plt.plot(x0,y0,'or')                    
+            
+            ## check the org generated design
+
+            # plt.plot(y[:,-1].to("cpu").detach().numpy())
+            # plt.plot(performance_est[:,-1].to("cpu").detach().numpy())
+            # self.principle_plot(mu,y,[4],performance_index=0)
+
+    def test_pp(self,batch,device):
+        fig, axs = plt.subplots(1)
+        count=0
+        for i in iter(batch):
+            with torch.no_grad():
+                x = i[0].to(device)
+                y = i[1].to(device)
+                _, mu, std = self.forward(x)
+                performance_est=self.performance_predict(mu)
+                # performance_est=self.performance_predict(torch.cat((mu,x[:,68:]),axis=1))
+                sorted, indices = torch.sort(y[:,-1])
+                plt.plot(sorted.to("cpu").detach().numpy())
+                plt.plot(performance_est[indices,-1].to("cpu").detach().numpy())                
+                # axs[count].plot(sorted.to("cpu").detach().numpy())
+                # axs[count].plot(performance_est[indices,-1].to("cpu").detach().numpy())
+                count+=1
+
+    def split_batch(self,batch):
+        for i in iter(batch):
+
+            self.optimizer.zero_grad()
+
+            with torch.no_grad():
+                x = i[0].to("cpu")
+                y = i[1].to("cpu")
+                _, mu, std = self.forward(x)            
+                ## Split up the batch
+                split_index=[]
+                for i in range(len(x)-1):
+                    if x[i,-128]!=x[i+1,-128]:
+                        split_index.append(i)
+                
+                y_rough=y[:split_index[0],:]
+                x_rough=x[:split_index[0],:]
+                mu_rough=mu[:split_index[0],:]
+
+                y_steps=y[split_index[0]+1:split_index[1],:]
+                x_steps=x[split_index[0]+1:split_index[1],:]
+                mu_steps=mu[split_index[0]+1:split_index[1],:]
+
+                y_slope=y[split_index[1]+1:,:]
+                x_slope=x[split_index[1]+1:,:]
+                mu_slope=mu[split_index[1]+1:,:]
+
+                sort_ind=2
+                sorted_rough, indices_rough = torch.sort(y_rough[:,sort_ind])
+                sorted_steps, indices_steps = torch.sort(y_steps[:,sort_ind])
+                sorted_slope, indices_slope = torch.sort(y_slope[:,sort_ind])
+
+                mu=[mu_rough.to("cpu"),mu_steps.to("cpu"),mu_slope.to("cpu")]
+                x2=[x_rough.to("cpu"),x_steps.to("cpu"),x_slope.to("cpu")]
+                y2=[y_rough.to("cpu"),y_steps.to("cpu"),y_slope.to("cpu")]
+                sort2=[indices_rough.to("cpu"),indices_steps.to("cpu"),indices_slope.to("cpu")]
+        
+        return mu, x2, y2
+
+    def BO(self,batch,num_iters=100,num_samples=10,terrain=0,obj=[]):
+        mu, x, y = self.split_batch(batch) 
+        
+        z = mu[terrain].detach().numpy()
+        xin=x[terrain].detach().numpy()
+        yin=y[terrain].detach().numpy()
+        with torch.no_grad():
+            ## Get results from ORG
+            user_weights=torch.tensor(obj.flatten(),device="cpu",dtype=torch.float)
+            # zgen = self.org(torch.cat((user_weights,x2[index][0,68:].to(device))))
+            zgen, orgstd = self.org_forward(torch.cat((user_weights,torch.tensor(xin[0,68:],dtype=torch.float,device="cpu"))))        
+            org_results = (self.performance_predict(zgen)@user_weights).detach().numpy()
+            org_reals, org_ints, _, _, _= self.decoder(zgen.unsqueeze(0))
+
+        ## Get results from BO
+        kernel = RBF(length_scale=1.0)
+        gp_model = GaussianProcessRegressor(kernel=kernel)
+        num_iterations=5
+        beta = 2.0    
+
+        zbounds=np.zeros((self.latent_dim,2))
+        ## identify the latent ranges
+        for i in range(self.latent_dim):
+            zbounds[i,0]=0.98*(np.max(z[:,i]).item())
+            zbounds[i,1]=0.98*(np.min(z[:,i]).item())
+        np.random.seed(0)
+        number_of_rows = xin.shape[0] 
+        random_indices = np.random.choice(number_of_rows,size=num_samples,replace=False) 
+        obj = user_weights.detach().numpy().T
+
+        ## Initial samples
+        sample_x = z[random_indices,:]#np.random.choice(z, size=num_samples)
+        yout = self.performance_predict(torch.tensor(sample_x,dtype=torch.float)).detach().numpy()
+        sample_y = yout@obj
+        best_rec=[]#np.zeros((num_iterations,2))
+        
+        for i in range(num_iters):
+            gp_model.fit(sample_x,sample_y)
+
+            ## upper confidence bound
+            y_pred, y_std = gp_model.predict(z, return_std=True)
+
+            best_idx = np.argmax(sample_y)
+            best_x = sample_x[best_idx]
+            best_y = sample_y[best_idx]    
+            best_rec.append(copy.copy(best_y.item()))
+            # best_rec[i,0]=copy.copy(best_x)
+            # best_rec[i,1]=copy.copy(best_y)        
+            ucb = y_pred.flatten() + beta * y_std
+
+            if i < num_iters-1:
+                sample_x = np.vstack((sample_x,z[np.argmax(ucb)]))
+                sample_y = self.performance_predict(torch.tensor(sample_x,dtype=torch.float)).detach().numpy()@obj
+                # sample_y = np.append(sample_y,y[np.argmax(ucb)])
+        with torch.no_grad():
+            bo_reals, bo_ints, _, _, _= self.decoder(torch.tensor(z[np.argmax(ucb)],dtype=torch.float).unsqueeze(0))
+                
+        return org_reals, org_ints, org_results, bo_reals, bo_ints, best_rec, yin

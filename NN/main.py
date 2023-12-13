@@ -13,8 +13,8 @@ import torch
 BS=10*1028
 percent_train=0.8
 # d1=util.create_dataset()
-# torch.save(d1,'data12102023.pt')
-d1=torch.load('data12102023.pt')#smd.run_sim(run_nums=2,out_data=2,num_repeats=1)
+# torch.save(d1,'data12122023.pt')
+d1=torch.load('data12122023.pt')#smd.run_sim(run_nums=2,out_data=2,num_repeats=1)
 train=torch.utils.data.DataLoader(d1,batch_size=BS, shuffle=True)
 test=torch.utils.data.DataLoader(d1,batch_size=len(d1), shuffle=False)
 correct_bodies=[]
@@ -24,12 +24,14 @@ miss_identification_props=[]
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 model=VAE()
 model.to(device)
-# model.load_state_dict(torch.load("./current_model_updatedv4",map_location=torch.device('cpu')))
+# model.load_state_dict(torch.load('./model_12122023v4',map_location=torch.device('cpu')))
 counter=0
 counter2=0
+loss_rec=[]
 # t0=time.perf_counter()
-for i in range(30000):
+for i in range(20000):
     loss=model.training_step(train,device)
+    loss_rec.append(loss)
     if counter==500:
         # test=torch.utils.data.DataLoader(d1,batch_size=len(d1), shuffle=False)
         model.to("cpu")
@@ -44,8 +46,9 @@ for i in range(30000):
         print('percentage joints correct',correct_bodies[-1][4]/sum(correct_bodies[-1][4:])) 
         counter=0
         model.to(device)
+    # model.test_pp(test,device)
     print(i, loss)
-    if counter2==500:
+    if counter2==1000:
         
         model.scheduler.step()
         counter2=0
@@ -58,7 +61,7 @@ for i in range(30000):
     # timer=time.perf_counter()-t0
     # t0=time.perf_counter()
     # print(timer) current_model2 has a latent space size of 16
-torch.save(model.state_dict(), 'current_model_updatedv3')
+torch.save(model.state_dict(), 'model_12122023_updated_weightv1')
 
 
 

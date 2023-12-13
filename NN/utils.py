@@ -72,15 +72,19 @@ def input_vectors(edges,nodes,results,terrains,num_bodies=4,num_body_reals=3,num
         ints=np.hstack((np.hstack((body_ints,prop_ints)),joint_ints[:(num_bodies-1)*num_joint_ints]))
         x=torch.tensor(np.hstack((np.hstack((reals,ints)),terrains[i])),dtype=torch.float)
         # x=torch.tensor(np.hstack((reals,ints)),dtype=torch.float)
-        out_results=np.zeros((5))
-        out_results[:4]=np.array(results[i][2:6])
-        out_results[-1]=-results[i][6]/(results[i][1]+0.1)*100
+        out_results=np.zeros((3))
+        out_results[0]=results[i][2]/250.#250,400,275#np.array()
+        out_results[1]=results[i][4]/275#np.array()
+        out_results[-1]=-results[i][6]/(results[i][1]+0.1)*100/29      
+        # out_results[:4]=np.array(results[i][2:6])
+        # out_results[-1]=-results[i][6]/(results[i][1]+0.1)*100
         y=torch.tensor(out_results,dtype=torch.float)
         # y=torch.tensor(results[i],dtype=torch.float)
         # if y[4]>0. or y[6]<0.:
         #     pass
         # else:
-        data.append([x,y])
+        if abs(y[-1])<50/29 and y[-1]>-1./29:
+            data.append([x,y])
 
     # torch.save(data,os.path.join('./','data.pt'))
     return data

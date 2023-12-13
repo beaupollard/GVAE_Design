@@ -411,7 +411,7 @@ def build_vehicles(sim,nodes):
     x_current, edge_current = convert2tensor(nodes)
     return props, lead_bodyid, x_current, edge_current, nodes
 
-def build_steps(sim,num_steps=50,step_height=6.5/39.37,slope=30):
+def build_steps(sim,num_steps=50,step_height=6.5/39.37,slope=28):
     b0=[]
     for i in range(num_steps):
         b0.append(sim.createPrimitiveShape(sim.primitiveshape_cuboid,[1.,4.,step_height]))

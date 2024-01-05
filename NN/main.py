@@ -13,7 +13,7 @@ import torch
 BS=10*1028
 percent_train=0.8
 # d1=util.create_dataset()
-# torch.save(d1,'data12122023.pt')
+# torch.save(d1,'data_with_rough_slope.pt')
 d1=torch.load('data12122023.pt')#smd.run_sim(run_nums=2,out_data=2,num_repeats=1)
 train=torch.utils.data.DataLoader(d1,batch_size=BS, shuffle=True)
 test=torch.utils.data.DataLoader(d1,batch_size=len(d1), shuffle=False)

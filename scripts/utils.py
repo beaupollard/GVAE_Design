@@ -2,7 +2,7 @@ import numpy as np
 import math
 import copy
 from scipy.spatial.transform import Rotation as R
-
+import random
 
 def get_gauss_rand(in_mean,in_std=0,l_lim=-1000000,u_lim=1000000):
     outp = l_lim-1
@@ -11,7 +11,7 @@ def get_gauss_rand(in_mean,in_std=0,l_lim=-1000000,u_lim=1000000):
     return outp
 
 def generate_body(sim,body_size=[0.3,0.15,0.2]):
-    density=50*16.0184634 #lbs/ft^3
+    density=50*16.0184634/4 #lbs/ft^3
     volume=body_size[0]*body_size[1]*(body_size[2]+2/39.37)
     b0=sim.createPrimitiveShape(sim.primitiveshape_cuboid,body_size)
     sim.setObjectInt32Param(b0,sim.shapeintparam_static,0)
@@ -481,6 +481,21 @@ def create_vehicles(x_reals,x_ints,num_bodies=4,num_body_reals=3,num_prop_reals=
             # nodes.append([propid-1, prop_reals[i,0], prop_reals[i,1], prop_reals[i,2], prop_reals[i,3]])
             ## Determine what type of mechanism is next [0=none, 1=wheel, 2=planet wheel, 3=track] ##
             # kinda cheating for right now #
+            if body_reals[i,0].item()<6./39.37:
+                body_reals[i,0]=6.0/39.37
+            elif body_reals[i,0].item()>14./39.37:
+                body_reals[i,0]=14./39.37
+
+            if prop_reals[i,0].item()<4./39.37:
+                prop_reals[i,0]=4.0/39.37
+            elif prop_reals[i,0].item()>10./39.37:
+                prop_reals[i,0]=10./39.37
+
+            ## check to make sure that the wheels don't collide
+            if i<bodies.item()-1:
+                R0=body_reals[i,0]/2+2/39.37+body_reals[i+1,0]/2
+                overlap=R0+prop_reals[i,1].item()-prop_reals[i,0].item()
+                # xloc = prop_reals[i,1].item()+prop_reals[i,0].item()+body_reals[i+1,0].item()
             nodes.append({"name":"body","location":[],"length": body_reals[i,0].item(),"width":0.508001,"height":0.3048006,"clearance":0,"childern": [body_id+1,body_id+2],"parents": [],"index":0})
             nodes.append({"name":"prop","location": [prop_reals[i,1].item(), 0.658001006, -0.102400303],"radius":prop_reals[i,0].item(),"childern": [],"parents": [],"type":prop_types[propid]})
             # This is the actual NN recreation #
@@ -499,3 +514,52 @@ def create_vehicles(x_reals,x_ints,num_bodies=4,num_body_reals=3,num_prop_reals=
         # nodes.append([joint_reals[i,0],joint_reals[i,1],jointid,joint_reals[i,2],joint_reals[i,3]])
         body_id+=index_increase
     return nodes, edges
+
+def satisfy_rules():
+    pass
+
+def crossover(nodes):
+    np.random.seed(seed=0)
+    new_designs=[]
+    while len(nodes)>1:
+        r0=random.randint(0, len(nodes)-1)
+        r1=random.randint(0, len(nodes)-1)
+        while r1==r0:
+            r1=random.randint(0, len(nodes)-1)
+        r0_jids=[]
+        for i in range(len(nodes[r0])):
+            if nodes[r0][i]['name']=='joint':
+                r0_jids.append(i+1)
+
+        r1_jids=[]
+        for i in range(len(nodes[r1])):
+            if nodes[r1][i]['name']=='joint':
+                r1_jids.append(i+1)
+        if nodes[r1][1]['type']=='track' or nodes[r0][1]['type']=='track':
+            new_designs.append(copy.copy(nodes[r0][:r0_jids[1]])+copy.copy(nodes[r1][r1_jids[1]:]))
+            new_designs.append(copy.copy(nodes[r1][:r1_jids[1]])+copy.copy(nodes[r0][r0_jids[1]:]))            
+        else:
+            new_designs.append(copy.copy(nodes[r0][:r0_jids[0]])+copy.copy(nodes[r1][r1_jids[0]:]))
+            new_designs.append(copy.copy(nodes[r1][:r1_jids[0]])+copy.copy(nodes[r0][r0_jids[0]:]))
+
+        if r1>r0:
+            nodes.pop(r1)
+            nodes.pop(r0)
+        else:
+            nodes.pop(r0)
+            nodes.pop(r1)
+    return new_designs
+
+def mutation(nodes,fit_func):
+    for i in range(len(nodes)):
+        for j in range(len(nodes[i])):
+            if nodes[i][j]['name']=='prop':
+                if np.max(fit_func)==0 or fit_func[i]<=0:
+                    std=0.01
+                else:
+                    std = 0.01/(fit_func[i]/np.max(fit_func)+1)
+                new_r=np.random.normal(nodes[i][j]['radius'], std, 1)
+                while new_r<4/39.37 or new_r>10/39.37:
+                    new_r=np.random.normal(nodes[i][j]['radius'], std, 1)
+                nodes[i][j]['radius']=copy.copy(new_r.item())
+    return nodes

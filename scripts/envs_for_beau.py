@@ -101,6 +101,40 @@ def build_gaussian_field(sim, num=20170519):
     b0 = []
     b0.append(sim.createHeightfieldShape(0, 3, 256, 256, 15, field))
     sim.setObjectPosition(b0[-1],b0[-1],[-5,0,0.1])
+
+    # b0.append(sim.createHeightfieldShape(0, 3, 256, 256, 15, field))
+    # sim.setObjectPosition(b0[-1],b0[-1],[-3,0,0])
+    Rw=b0[-1]#sim.groupShapes(b0)
+
+    # sim.setShapeColor(b0[-1],'',sim.colorcomponent_ambient_diffuse,[1,1,1])
+    # sim.setShapeColor(b0[-2],'',sim.colorcomponent_ambient_diffuse,[1,1,1])
+
+
+    final_pos = [-12., 0]
+
+    sim.setObjectInt32Param(Rw,sim.shapeintparam_respondable,1)
+    sim.cameraFitToView(0)
+    return final_pos, 0, 0, Rw#b0[0]
+
+def build_gaussian_field_obs(sim, num=20170519):
+    x = y = range(256)
+
+    model = Gaussian(dim=2, var=1, len_scale=10)
+    srf = SRF(model, seed=num)
+
+    field = srf.structured([x, y])
+    field = field.tolist()
+
+    field = flatten(field)
+    smallest = min(field)
+    field = list(map(lambda x: x / 10, field))
+
+    b0 = []
+    b0.append(sim.createHeightfieldShape(0, 3, 256, 256, 15, field))
+    sim.setObjectPosition(b0[-1],b0[-1],[-5,0,0.1])
+    b1=sim.createPrimitiveShape(sim.primitiveshape_cuboid,[1.5,5.,0.5])
+    sim.setObjectPosition(b1,b1,[-1.5,0,0.1])
+    sim.setObjectInt32Param(b1,sim.shapeintparam_respondable,1)
     # b0.append(sim.createHeightfieldShape(0, 3, 256, 256, 15, field))
     # sim.setObjectPosition(b0[-1],b0[-1],[-3,0,0])
     Rw=b0[-1]#sim.groupShapes(b0)

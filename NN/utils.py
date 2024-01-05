@@ -92,15 +92,15 @@ def input_vectors(edges,nodes,results,terrains,num_bodies=4,num_body_reals=3,num
 def create_dataset():
     # num_in=[10,39,43,44]#,6]
     # run_num=[0,1,2,3]
-    node_files=['nodes_rough','nodes_steps','nodes_slope']
-    edge_files=['edges_rough','edges_steps','edges_slope']
-    result_files=['results_rough','results_steps','results_slope']
-    terrain_files=['field2_z.npy','stairs_z.npy','slope_z.npy']
+    node_files=['nodes_rough','nodes_steps','nodes_slope','nodes_rough_slope']
+    edge_files=['edges_rough','edges_steps','edges_slope','edges_rough_slope']
+    result_files=['results_rough','results_steps','results_slope','results_rough_slope']
+    terrain_files=['field2_z.npy','stairs_z.npy','slope_z.npy','rough_slope_z.npy']
     nodes=[]
     edges=[]
     results=[]
     t_rec=[]
-    terrains=np.zeros((3,128))
+    terrains=np.zeros((len(terrain_files),128))
     path='../results/12_10_2023/'
     for i in range(len(node_files)):
         terrains[i,:]=np.load(path+terrain_files[i])

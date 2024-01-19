@@ -513,10 +513,87 @@ def create_vehicles(x_reals,x_ints,num_bodies=4,num_body_reals=3,num_prop_reals=
         nodes.append({"name":"joint","location": [joint_reals[i,2].item(), 0, joint_reals[i,3].item()],"orientation":jori,"active":[joint_reals[i,0].item(),joint_reals[i,1].item()],"childern": [],"parents": [],"index":1})
         # nodes.append([joint_reals[i,0],joint_reals[i,1],jointid,joint_reals[i,2],joint_reals[i,3]])
         body_id+=index_increase
+    nodes = satisfy_rules(nodes)
     return nodes, edges
 
-def satisfy_rules():
-    pass
+def satisfy_rules(nodes_in):
+    # print("stop")
+    ## Get index for different components ##
+    prop_index=[]
+    joint_index=[]
+    body_index=[]
+    global_locations=[0]
+    for count, i in enumerate(nodes_in):
+        if i['name']=='body':
+            body_index.append(count)
+            if count!=0:
+                global_locations.append(global_locations[-1]+1/39.37+i['length']/2)
+
+        elif i['name']=='prop':
+            prop_index.append(count)
+            global_locations.append(global_locations[-1]+i['location'][0])
+        else:
+            joint_index.append(count)
+            if nodes_in[count-1]['name']=='prop':
+                bind=count-2
+            else:
+                bind=count-1
+            global_locations.append(global_locations[-1]+nodes_in[bind]['length']/2+1/39.37)    
+
+    ## Check for track issues ##
+    prev_track=False
+    for count, i in enumerate(prop_index):
+        if prev_track == False and count==len(prop_index)-1:
+            nodes_in[i]['type']='wheel'
+        if prev_track == True:#nodes_in[i]['type']=='track' and 
+            nodes_in[i]['type']='track'
+            nodes_in[i]['radius']=nodes_in[prop_index[count-1]]['radius']
+            prev_track = False
+        elif nodes_in[i]['type']=='track':
+            prev_track=True
+    
+    ## Check body lengths ##
+    for i in body_index:
+        if nodes_in[i]['length']<8/39.37:
+            nodes_in[i]['length']=8./39.37
+        nodes_in[i]['width'] = 20/39.37
+        nodes_in[i]['height'] = 12/39.37
+
+    ## Check joints ##
+    for i in joint_index:
+        if nodes_in[i-1]['name']=='body':
+            nodes_in[i]['location'][0] = nodes_in[i-1]['length']/2+1/39.37
+        else:
+            nodes_in[i]['location'][0] = nodes_in[i-2]['length']/2+1/39.37
+        if nodes_in[i]['active'][0]>400:
+            nodes_in[i]['active']=[1000.,5.]
+        elif nodes_in[i]['active'][0]<100:
+            nodes_in[i]['active']=[100.,15.]
+
+    offset_buff=1.35
+    ## Check if there is overlap between props ##1/39.37+nodes[i]['length']/2
+    for count, i in enumerate(prop_index[:-1]):
+        fwheel_center=nodes_in[prop_index[count]-1]['length']/2+2/39.37-nodes_in[i]['location'][0]
+        if nodes_in[i+3]['name']=='prop':
+            bwheel_center=nodes_in[body_index[count+1]]['length']/2-nodes_in[prop_index[count+1]]['location'][0]
+        else:
+            bwheel_center=nodes_in[body_index[count+1]]['length']+2/39.37+nodes_in[body_index[count+2]]['length']/2+2/39.37-nodes_in[prop_index[count+1]]['location'][0]
+        
+        total_radius=nodes_in[i]['radius']+nodes_in[prop_index[count+1]]['radius']
+        if fwheel_center+bwheel_center<total_radius*offset_buff:
+            if nodes_in[i]['radius']>nodes_in[prop_index[count+1]]['radius']:
+                new_radius = (fwheel_center+bwheel_center)/offset_buff-nodes_in[i]['radius']
+                while new_radius<0.:
+                    nodes_in[i]['radius']/=1.5
+                    new_radius = (fwheel_center+bwheel_center)/offset_buff-nodes_in[i]['radius']
+                nodes_in[prop_index[count+1]]['radius']=new_radius#(fwheel_center+bwheel_center)/1.25-nodes_in[i]['radius']
+            else:
+                new_radius = (fwheel_center+bwheel_center)/offset_buff-nodes_in[prop_index[count+1]]['radius']
+                while new_radius<0.:
+                    nodes_in[prop_index[count+1]]['radius']/=1.5
+                    new_radius = (fwheel_center+bwheel_center)/offset_buff-nodes_in[prop_index[count+1]]['radius']         
+                nodes_in[i]['radius']=new_radius#(fwheel_center+bwheel_center)/1.25-nodes_in[i]['radius']       
+    return nodes_in
 
 def crossover(nodes):
     np.random.seed(seed=0)
@@ -542,6 +619,14 @@ def crossover(nodes):
             new_designs.append(copy.copy(nodes[r0][:r0_jids[0]])+copy.copy(nodes[r1][r1_jids[0]:]))
             new_designs.append(copy.copy(nodes[r1][:r1_jids[0]])+copy.copy(nodes[r0][r0_jids[0]:]))
 
+        for i, new_node in enumerate(new_designs[-2:]):
+            track_ids=[]
+            for count, j in enumerate(new_node):
+                if j['name']=='prop' and j['type']=='track':
+                    track_ids.append(count)
+            if len(track_ids)%2!=0:
+                new_designs[-2+i][track_ids[-1]]['type']='wheel'
+            
         if r1>r0:
             nodes.pop(r1)
             nodes.pop(r0)
@@ -561,5 +646,7 @@ def mutation(nodes,fit_func):
                 new_r=np.random.normal(nodes[i][j]['radius'], std, 1)
                 while new_r<4/39.37 or new_r>10/39.37:
                     new_r=np.random.normal(nodes[i][j]['radius'], std, 1)
+                new_z=np.random.normal(nodes[i][j]['location'][2], 3*std, 1)
                 nodes[i][j]['radius']=copy.copy(new_r.item())
+                nodes[i][j]['location'][2]=copy.copy(new_z.item())
     return nodes

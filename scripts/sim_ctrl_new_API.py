@@ -1,5 +1,5 @@
 import time
-# from zmqRemoteApi import RemoteAPIClient
+from scipy.spatial.transform import Rotation as R
 from coppeliasim_zmqremoteapi_client import RemoteAPIClient
 import numpy as np
 import math
@@ -7,17 +7,19 @@ import copy
 import numpy as np
 import json
 
-def steering(sim,body_id,motor_ids,radius,velo):
-    
+def steering(sim,body_id,motor_ids,radius,velo,des_angle=0.):
+    # if sim.getObjectPosition(body_id,-1)[0]<-4.15:
+    #     des_angle = math.pi/2
     # sim.setObjectOrientation(body_id,-1,[0.,0.,3.14/4])
     eulerAngles=sim.getObjectOrientation(body_id,-1)
+    # r = R.from_euler('xyz', eulerAngles, degrees=False)
 
     for i,motor in enumerate(motor_ids):
         if i % 2 == 0:
             motor_direction=-1
         else:
             motor_direction=1
-        rot_velo=(velo/60/radius[i])+motor_direction*eulerAngles[-1]
+        rot_velo=(velo/60/radius[i])+motor_direction*(eulerAngles[-1]-des_angle)
         sim.setJointTargetVelocity(motor.item(),rot_velo)
 
 def end_sim(sim,final_pos,body_id):
@@ -58,6 +60,7 @@ def main_run(motor_ids,body_id,nodes,final_pos,client,sim):
     velo=15. 
     torque=[]
     power=[]
+    vel_rec=[]
     sim.setInt32Parameter(sim.intparam_dynamic_engine,sim.physics_mujoco)
     # client.setStepping(True)
     sim.setStepping(True)
@@ -72,10 +75,18 @@ def main_run(motor_ids,body_id,nodes,final_pos,client,sim):
         steering(sim,body_id,motor_ids,radius,velo)
         torque_rec(sim,motor_ids,torque,power)
         success, pin = end_sim(sim,final_pos,body_id)
+        vel,omega=sim.getObjectVelocity(body_id)
+        mat=np.array(sim.getObjectMatrix(body_id,-1)).reshape((3,4))
+        body_vel=mat[:3,:3]@vel   
+        vel_rec.append(abs((mat[:3,:3]@vel)[0]))
         if success==True or sim.getSimulationTime()>30.:
             time=sim.getSimulationTime()
             end_sim_var=True
-        count+=1        
+        count+=1 
+    if sim.getSimulationTime()<20.:
+        ave_vel=0.0
+    else:
+        ave_vel=np.array(vel_rec).mean()
     sim.stopSimulation()
     #     sim.simxSynchronousTrigger(sim_scene.clientID)
     #     sim_scene.steering()
@@ -92,4 +103,5 @@ def main_run(motor_ids,body_id,nodes,final_pos,client,sim):
     # # print(err0,err1)
     sum_torque=[sum(abs(np.array(torque)[i,:])) for i in range(len(torque))]
     sum_power=[sum(abs(np.array(power)[i,:])) for i in range(len(power))]
-    return success, time, sum(sum_torque)/len(sum_torque), max(sum_torque), sum(sum_power)/len(sum_power), max(sum_power), pin
+
+    return success, time, sum(sum_torque)/len(sum_torque), max(sum_torque), sum(sum_power)/len(sum_power), max(sum_power), pin, ave_vel

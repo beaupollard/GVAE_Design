@@ -30,7 +30,9 @@ def build_ters():
 
 model=VAE()
 model.to("cpu")
-model.load_state_dict(torch.load("../NN/current_model_orgv2",map_location=torch.device('cpu')))
+model.load_state_dict(torch.load("../NN/current_model_org011820242",map_location=torch.device('cpu')))
+
+# model.load_state_dict(torch.load("../NN/current_model_orgv2",map_location=torch.device('cpu')))
 d1=torch.load('../NN/data_with_rough_slope.pt')#smd.run_sim(run_nums=2,out_data=2,num_repeats=1)
 # d1=torch.load('../NN/data12122023.pt')#smd.run_sim(run_nums=2,out_data=2,num_repeats=1)
 prev_data=torch.utils.data.DataLoader(d1,batch_size=len(d1), shuffle=False)
@@ -38,6 +40,7 @@ prev_data=torch.utils.data.DataLoader(d1,batch_size=len(d1), shuffle=False)
 ## Set the environment
 # terrains = ['rough','steps','slope']
 terrain=3
+# obj=np.array([[-0.15,-0.15,0.7]]).T
 obj=np.array([[-0.3,-0.3,0.4]]).T
 org_reals, org_ints, org_results, bo_reals, bo_ints, best_rec, yres, mures, xres = model.BO(prev_data,num_iters=10,num_samples=100,terrain=terrain,obj=obj)
 yints=np.argmax((yres@obj).flatten())
@@ -56,7 +59,7 @@ joints, body_id, x_current, edge_current, nodes = utils.build_vehicles(sim,nodes
 
 final_pos, b0=build_ters()
 
-success, time_sim, ave_torque, max_torque, ave_power, max_power, pin = main_run(np.array(joints).flatten(),body_id,nodes,final_pos,client,sim)
+success, time_sim, ave_torque, max_torque, ave_power, max_power, pin, ave_speed = main_run(np.array(joints).flatten(),body_id,nodes,final_pos,client,sim)
 sim.removeObject(b0)
 sim_results.append([success,time_sim,ave_torque,max_torque,ave_power,max_power,pin[0],pin[1],pin[2]])
 sim.closeScene()
@@ -67,7 +70,7 @@ joints, body_id, x_current, edge_current, nodes = utils.build_vehicles(sim,nodes
 
 final_pos, b0=build_ters()
 
-success, time_sim, ave_torque, max_torque, ave_power, max_power, pin = main_run(np.array(joints).flatten(),body_id,nodes,final_pos,client,sim)
+success, time_sim, ave_torque, max_torque, ave_power, max_power, pin, ave_speed = main_run(np.array(joints).flatten(),body_id,nodes,final_pos,client,sim)
 sim.removeObject(b0)
 sim_results.append([success,time_sim,ave_torque,max_torque,ave_power,max_power,pin[0],pin[1],pin[2]])
 sim.closeScene()
@@ -79,7 +82,7 @@ joints, body_id, x_current, edge_current, nodes = utils.build_vehicles(sim,nodes
 
 final_pos, b0=build_ters()
 
-success, time_sim, ave_torque, max_torque, ave_power, max_power, pin = main_run(np.array(joints).flatten(),body_id,nodes,final_pos,client,sim)
+success, time_sim, ave_torque, max_torque, ave_power, max_power, pin, ave_speed = main_run(np.array(joints).flatten(),body_id,nodes,final_pos,client,sim)
 sim.removeObject(b0)
 sim_results.append([success,time_sim,ave_torque,max_torque,ave_power,max_power,pin[0],pin[1],pin[2]])
 sim.closeScene()
@@ -91,7 +94,7 @@ joints, body_id, x_current, edge_current, nodes = utils.build_vehicles(sim,nodes
 
 final_pos, b0=build_ters()
 
-success, time_sim, ave_torque, max_torque, ave_power, max_power, pin = main_run(np.array(joints).flatten(),body_id,nodes,final_pos,client,sim)
+success, time_sim, ave_torque, max_torque, ave_power, max_power, pin, ave_speed = main_run(np.array(joints).flatten(),body_id,nodes,final_pos,client,sim)
 sim.removeObject(b0)
 sim_results.append([success,time_sim,ave_torque,max_torque,ave_power,max_power,pin[0],pin[1],pin[2]])
 sim.closeScene()

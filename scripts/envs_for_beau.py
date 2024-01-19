@@ -135,6 +135,15 @@ def build_gaussian_field_obs(sim, num=20170519):
     b1=sim.createPrimitiveShape(sim.primitiveshape_cuboid,[1.5,5.,0.5])
     sim.setObjectPosition(b1,b1,[-1.5,0,0.1])
     sim.setObjectInt32Param(b1,sim.shapeintparam_respondable,1)
+
+    b1=sim.createPrimitiveShape(sim.primitiveshape_cuboid,[0.5,5.,2.5])
+    sim.setObjectPosition(b1,b1,[-6.5,0,-0.1])
+    sim.setObjectInt32Param(b1,sim.shapeintparam_respondable,1)
+
+    b2=sim.createPrimitiveShape(sim.primitiveshape_cuboid,[0.5,2.5,2.5])
+    sim.setObjectPosition(b2,b2,[-4.5,-2.0,-0.1])
+    sim.setObjectInt32Param(b2,sim.shapeintparam_respondable,1)
+    sim.setShapeColor(b2, '', sim.colorcomponent_transparency, [0.1])
     # b0.append(sim.createHeightfieldShape(0, 3, 256, 256, 15, field))
     # sim.setObjectPosition(b0[-1],b0[-1],[-3,0,0])
     Rw=b0[-1]#sim.groupShapes(b0)

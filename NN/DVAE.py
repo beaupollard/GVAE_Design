@@ -12,7 +12,7 @@ import copy
 import math
 
 class VAE(nn.Module):
-    def __init__(self, enc_out_dim=68, latent_dim=16, input_height=68+128,lr=2e-3,hidden_layers=64,dec_hidden_layers=128,performance_out=3,env_inputs=128,seed=0):
+    def __init__(self, enc_out_dim=68, latent_dim=16, input_height=68,lr=2e-3,hidden_layers=64,dec_hidden_layers=128,performance_out=3,env_inputs=128,seed=0,ze_dim=8):
         super(VAE, self).__init__()
         torch.manual_seed(seed)
         self.reals_weight=1.
@@ -27,8 +27,10 @@ class VAE(nn.Module):
         self.body_num=4
         self.q_prior=torch.distributions.Normal(0.,1.)
         self.performance_out=performance_out
+        decode_perf=performance_out
+        input_height+=ze_dim
         self.linear_relu_stack = nn.Sequential(
-            nn.Linear(input_height, 2*hidden_layers),
+            nn.Linear(input_height+performance_out, 2*hidden_layers),
             nn.Tanh(),
             nn.Linear(2*hidden_layers, 2*hidden_layers),
             nn.Tanh(),
@@ -51,8 +53,8 @@ class VAE(nn.Module):
             nn.Linear(hidden_layers, performance_out),
             # nn.ReLU()
         )
-        self.decoder_to_ints = nn.Linear(latent_dim, dec_hidden_layers)
-        self.decoder_rnn = nn.Linear(latent_dim, dec_hidden_layers)
+        self.decoder_to_ints = nn.Linear(latent_dim+decode_perf, dec_hidden_layers)
+        self.decoder_rnn = nn.Linear(latent_dim+decode_perf, dec_hidden_layers)
         self.decoder_rnn_hidden = nn.Linear(dec_hidden_layers, dec_hidden_layers)
         # self.decoder_props_hidden = nn.RNN(input_size=latent_dim, hidden_size=hidden_layers,batch_first=False)
         self.forward_pp = nn.Sequential(
@@ -63,7 +65,7 @@ class VAE(nn.Module):
             # nn.Linear(hidden_layers,performance_out)
         )
         self.decoder_reals = nn.Sequential(
-            nn.Linear(latent_dim, dec_hidden_layers),
+            nn.Linear(latent_dim+decode_perf, dec_hidden_layers),
             nn.Tanh(),#nn.ReLU(),
             nn.Linear(dec_hidden_layers, 40),
         )
@@ -101,7 +103,7 @@ class VAE(nn.Module):
             nn.Softmax()
         )
         self.org = nn.Sequential(
-            nn.Linear(128+performance_out, 128),
+            nn.Linear(ze_dim+performance_out, 128),
             nn.Tanh(),#nn.ReLU()
             nn.Linear(128, 128),
             nn.Tanh(),#nn.ReLU(),
@@ -216,12 +218,8 @@ class VAE(nn.Module):
 
     def training_step(self, batch,device):
         running_loss=[0.,0.,0.,0.,0.]
-        # if self.count==1000:
-        #     self.lr=self.lr/5
-        #     self.configure_optimizers(lr=self.lr)
-        #     self.count=0
+        
         for i in iter(batch):
-            # i.to(device)
             self.optimizer.zero_grad()
        
             x = i[0].to(device)
@@ -233,18 +231,22 @@ class VAE(nn.Module):
             user_weights=torch.div(rand_weights.T,torch.sum(rand_weights,dim=1)).T
             user_weights[:,:-1]*=-1.                 
             # encode x to get the mu and variance parameters
-            _, mu, std = self.forward(x)
+            # _, mu, std = self.forward(x)
+            _, mu, std = self.forward(torch.cat((x,y),dim=1))
 
             q=torch.distributions.Normal(mu,std)
             z=q.rsample()
 
             # decoded
-            x_reals, x_ints, body_id, prop_id, joint_id= self.decoder(z)
+            # pp_z_mu, pp_z_logstd=self.performance_predict(torch.cat((z,x[:,68:]),dim=1))
+            pp_z_mu, pp_z_logstd=self.performance_predict(z)
+            # performance_dist=torch.distributions.Normal(pp_z_mu, pp_z_logstd)
+            performance_est=pp_z_mu#performance_dist.rsample()
+
+            x_reals, x_ints, body_id, prop_id, joint_id= self.decoder(torch.cat((z,performance_est),dim=1))
             recon_loss_ints=self.ints_weight*self.ints_loss(x[:,40:68],x_ints)
             recon_loss_reals = self.reals_weight*F.mse_loss(x_reals,x[:,:40])
-            pp_z_mu, pp_z_logstd=self.performance_predict(z)
-            performance_dist=torch.distributions.Normal(pp_z_mu, pp_z_logstd)
-            performance_est=performance_dist.rsample()
+
 
             # performance_est=self.performance_predict(torch.cat((z,x[:,68:]),axis=1))
             recon_perf = self.perf_weight*F.mse_loss(performance_est,y)
@@ -253,9 +255,9 @@ class VAE(nn.Module):
             qorg=torch.distributions.Normal(zorg, orgstd)
             # zorg = self.org(torch.cat((user_weights,x[:,68:]),dim=1))
             # Predict performance
-            pp_org_mu, pp_org_logstd=self.performance_predict(z)
-            performance_org_dist=torch.distributions.Normal(pp_org_mu, pp_org_logstd)     
-            performance_org=performance_org_dist.rsample()       
+            # pp_org_mu, pp_org_logstd=self.performance_predict(z)
+            # performance_org_dist=torch.distributions.Normal(pp_org_mu, pp_org_logstd)     
+            # performance_org=performance_org_dist.rsample()       
             # performance_org=self.performance_predict(qorg.rsample())
 
             ## find robots that did best here
@@ -268,8 +270,8 @@ class VAE(nn.Module):
             # recon_loss_ints = 500.*F.cross_entropy(x_ints,i[:,40:])
             # recon_loss = self.gaussian_likelihood(torch.cat((x_reals,x_ints),dim=1), self.log_scale, i[0])#F.mse_loss(z,zhat)-F.mse_loss(x_hat,x)#
             #kl = (self.kl_divergence(z, mu, std)*self.kl_weight).mean()
-            kl = (torch.distributions.kl.kl_divergence(q, self.q_prior).sum(1).mean()+torch.distributions.kl.kl_divergence(performance_dist, self.q_prior).sum(1).mean())*self.kl_weight
-            # kl = (torch.distributions.kl.kl_divergence(q, self.q_prior).sum(1).mean())*self.kl_weight
+            # kl = (torch.distributions.kl.kl_divergence(q, self.q_prior).sum(1).mean()+torch.distributions.kl.kl_divergence(performance_dist, torch.distributions.Normal(0.,0.1)).sum(1).mean())*self.kl_weight
+            kl = (torch.distributions.kl.kl_divergence(q, self.q_prior).sum(1).mean())*self.kl_weight
             # recon_loss_ints=self.int_loss(body_id,prop_id,joint_id,i[:,40:])
             elbo=(kl+recon_loss_reals+recon_loss_ints+recon_perf)
 
@@ -302,18 +304,21 @@ class VAE(nn.Module):
                 user_weights=torch.div(rand_weights.T,torch.sum(rand_weights,dim=1)).T
                 user_weights[:,:-1]*=-1.                 
                 # encode x to get the mu and variance parameters
-                _, mu, std = self.forward(x)
+                # _, mu, std = self.forward(x)
+                _, mu, std = self.forward(torch.cat((x,y),dim=1))
 
                 q=torch.distributions.Normal(mu,std)
                 z=q.rsample()
 
                 # decoded
-                x_reals, x_ints, body_id, prop_id, joint_id= self.decoder(z)
+                # pp_z_mu, pp_z_logstd=self.performance_predict(torch.cat((z,x[:,68:]),dim=1))
+                pp_z_mu, pp_z_logstd=self.performance_predict(z)
+                # performance_dist=torch.distributions.Normal(pp_z_mu, pp_z_logstd)
+                performance_est=pp_z_mu#performance_dist.rsample()
+
+                x_reals, x_ints, body_id, prop_id, joint_id= self.decoder(torch.cat((z,performance_est),dim=1))
                 recon_loss_ints=self.ints_weight*self.ints_loss(x[:,40:68],x_ints)
                 recon_loss_reals = self.reals_weight*F.mse_loss(x_reals,x[:,:40])
-                pp_z_mu, pp_z_logstd=self.performance_predict(z)
-                performance_dist=torch.distributions.Normal(pp_z_mu, pp_z_logstd)
-                performance_est=performance_dist.rsample()
 
                 # performance_est=self.performance_predict(torch.cat((z,x[:,68:]),axis=1))
                 recon_perf = self.perf_weight*F.mse_loss(performance_est,y)
@@ -322,12 +327,12 @@ class VAE(nn.Module):
                 qorg=torch.distributions.Normal(zorg, orgstd)
 
                 # Predict performance
-                pp_org_mu, pp_org_logstd=self.performance_predict(z)
-                performance_org_dist=torch.distributions.Normal(pp_org_mu, pp_org_logstd)     
-                performance_org=performance_org_dist.rsample()       
+                # pp_org_mu, pp_org_logstd=self.performance_predict(z)
+                # performance_org_dist=torch.distributions.Normal(pp_org_mu, pp_org_logstd)     
+                # performance_org=performance_org_dist.rsample()       
 
-                kl = (torch.distributions.kl.kl_divergence(q, self.q_prior).sum(1).mean()+torch.distributions.kl.kl_divergence(performance_dist, self.q_prior).sum(1).mean())*self.kl_weight
-
+                # kl = (torch.distributions.kl.kl_divergence(q, self.q_prior).sum(1).mean()+torch.distributions.kl.kl_divergence(performance_dist, torch.distributions.Normal(0.,0.1)).sum(1).mean())*self.kl_weight
+                kl = (torch.distributions.kl.kl_divergence(q, self.q_prior).sum(1).mean())*self.kl_weight           
                 running_loss[0] += recon_loss_reals.mean().item()
                 running_loss[1] += recon_loss_ints.mean().item()
                 running_loss[2] += kl.mean().item()#F.mse_loss(zout,z).item()
@@ -343,6 +348,7 @@ class VAE(nn.Module):
             y = i[1].to(device)
             BS=2*1024
             user_weights=torch.rand((BS,3),dtype=torch.float,device=device)
+            user_weights[:,-1]+=1.0
             for ii in range(len(user_weights)):
                 user_weights[ii,:]=user_weights[ii,:]/torch.sum(user_weights[ii,:])
                 user_weights[ii,:-1]*=-1.
@@ -352,8 +358,8 @@ class VAE(nn.Module):
             
             index_rec=[]
             for ii in range(BS):
-                res=y*user_weights[ii]
-                index_rec.append(torch.argmax(torch.sum(res,dim=1)).item())
+                # res=y@user_weights[ii]
+                index_rec.append(torch.argmax(y@user_weights[ii]).item())#torch.argmax(torch.sum(res,dim=1)).item())
             
             zorg, orgstd = self.org_forward(torch.cat((10*user_weights,x[index_rec,68:]),dim=1))
             q=torch.distributions.Normal(zorg, orgstd)
@@ -362,7 +368,7 @@ class VAE(nn.Module):
             # kl = torch.distributions.kl.kl_divergence(q, torch.distributions.Normal(0.,1.)).sum(1).mean()*self.kl_weight
             mse_L=F.mse_loss(mu[index_rec],zorg)*10
             # kl_loss=
-            loss=mse_L+kl*0.01
+            loss=mse_L+kl*0.0001
             loss.backward()
 
             self.optimizer.step()            
@@ -398,6 +404,44 @@ class VAE(nn.Module):
         # return res_out
         return mse_L.item(), kl.item()
 
+    # def train_org(self,batch,device):
+    #     res_out=0
+    #     for i in iter(batch):
+    #         self.optimizer.zero_grad()
+    #         x = i[0].to(device)
+    #         y = i[1].to(device)
+    #         BS=10*1024
+    #         weights=torch.tensor([-0.3,-0.3,0.4],dtype=torch.float)
+    #         user_weights = torch.tile(weights, (len(y), 1))
+    #         # user_weights=torch.rand((BS,3),dtype=torch.float,device=device)
+    #         # for ii in range(len(user_weights)):
+    #         #     user_weights[ii,:]=user_weights[ii,:]/torch.sum(user_weights[ii,:])
+    #         #     user_weights[ii,:-1]*=-1.
+
+    #         with torch.no_grad():
+    #             _, mu, std = self.forward(x)
+            
+    #         # index_rec=[]
+    #         # for ii in range(BS):
+    #         #     res=y*user_weights[ii]
+    #         #     index_rec.append(torch.argmax(torch.sum(res,dim=1)).item())
+    #         res=y@weights
+    #         index_rec=[torch.argmax(res).item()]
+    #         zorg, orgstd = self.org_forward(torch.cat((10*user_weights,x[:,68:]),dim=1))
+    #         q=torch.distributions.Normal(zorg, orgstd)
+    #         z=q.rsample()
+    #         kl = torch.distributions.kl.kl_divergence(q, torch.distributions.Normal(mu[index_rec],0.5*torch.ones(len(index_rec),16))).sum(1).mean()*self.kl_weight
+    #         # kl = torch.distributions.kl.kl_divergence(q, torch.distributions.Normal(0.,1.)).sum(1).mean()*self.kl_weight
+    #         # mse_L=F.mse_loss(mu[index_rec],zorg)*10
+    #         mse_L=F.mse_loss(torch.tile(mu[index_rec], (len(y), 1)),zorg)*10
+    #         # kl_loss=
+    #         loss=mse_L+kl*0.01
+    #         loss.backward()
+
+    #         self.optimizer.step()            
+
+    #     return mse_L.item(), kl.item()
+
     def test(self, batch,device):
         with torch.no_grad():
             correct_bodies=np.zeros((6))
@@ -407,14 +451,22 @@ class VAE(nn.Module):
             running_loss=[0.,0.,0.]
             for ii in iter(batch):
                 i=ii[0].to(device)
+                y=ii[1].to(device)
                 self.optimizer.zero_grad()
-                _, mu, std = self.forward(i)
+                _, mu, std = self.forward(torch.cat((i,y),dim=1))
+                # _, mu, std = self.forward(i)
 
                 q=torch.distributions.Normal(mu,std)
                 z=q.rsample()
 
                 # decoded
-                x_reals, x_ints, _, _, _= self.decoder(mu)
+                # pp_z_mu, pp_z_logstd=self.performance_predict(torch.cat((z,i[:,68:]),dim=1))
+                pp_z_mu, pp_z_logstd=self.performance_predict(z)
+                performance_dist=torch.distributions.Normal(pp_z_mu, pp_z_logstd)
+                performance_est=pp_z_mu#performance_dist.rsample()
+
+                x_reals, x_ints, _, _, _= self.decoder(torch.cat((mu,performance_est),dim=1))                
+                # x_reals, x_ints, _, _, _= self.decoder(mu)
                 i_ints=i[:,40:]
                 # F.cross_entropy(x_ints[:,:3],i_ints[:,:3])+F.cross_entropy(x_ints[:,3:7],i_ints[:,3:7])+F.cross_entropy(x_ints[:,7:11],i_ints[:,7:11])+F.cross_entropy(x_ints[:,11:15],i_ints[:,11:15])+F.cross_entropy(x_ints[:,15:19],i_ints[:,15:19])+F.cross_entropy(x_ints[:,19:22],i_ints[:,19:22])+F.cross_entropy(x_ints[:,22:25],i_ints[:,22:25])+F.cross_entropy(x_ints[:,25:28],i_ints[:,25:28])
                 for j in range(len(i)):
@@ -641,11 +693,12 @@ class VAE(nn.Module):
             with torch.no_grad():
                 x = i[0].to("cpu")
                 y = i[1].to("cpu")
-                _, mu, std = self.forward(x)            
+                _, mu, std = self.forward(torch.cat((x,y),dim=1))
+                # _, mu, std = self.forward(x)            
                 ## Split up the batch
                 split_index=[]
                 for i in range(len(x)-1):
-                    if x[i,-128]!=x[i+1,-128]:
+                    if x[i,-1]!=x[i+1,-1]:
                         split_index.append(i)
                 
                 y2=[y[:split_index[0],:].to("cpu")]
@@ -765,7 +818,7 @@ class VAE(nn.Module):
                 
         return org_reals, org_ints, org_results, bo_reals, bo_ints, best_rec, yin, z, xin
 
-    def BO_multi(self,batch,terrain=0,obj=[],runs=10):
+    def BO_multi(self,batch,terrain=0,obj=[],runs=10,seed=1):
         mu, x, y, _ = self.split_batch(batch) 
         
         z = mu[terrain].detach().numpy()
@@ -773,7 +826,7 @@ class VAE(nn.Module):
         yin=y[terrain].detach().numpy()
         real_rec=[]
         int_rec=[]
-        torch.manual_seed(1)
+        torch.manual_seed(seed)
         with torch.no_grad():
             move_on=0
             while move_on<runs:
@@ -783,10 +836,11 @@ class VAE(nn.Module):
                 zgen, orgstd = self.org_forward(torch.cat((10*user_weights,torch.tensor(xin[0,68:],dtype=torch.float,device="cpu"))))        
                 q=torch.distributions.Normal(zgen,orgstd)
                 zgen=q.rsample()
-                pp_org_mu, pp_org_logstd=self.performance_predict(zgen)
+                pp_org_mu, pp_org_logstd=self.performance_predict(zgen)#torch.cat((zgen,x[terrain][0,68:])))
+                # pp_org_mu, pp_org_logstd=self.performance_predict(zgen)torch.cat((zgen,x[:,68:]),dim=1)
                 # performance_org_dist=torch.distributions.Normal(pp_org_mu, pp_org_logstd)   
                 org_results = (pp_org_mu@user_weights).detach().numpy()
-                org_reals, org_ints, _, _, _= self.decoder(zgen.unsqueeze(0))
+                org_reals, org_ints, _, _, _= self.decoder(torch.cat((zgen,pp_org_mu)).unsqueeze(0))
                 nodes, _ = create_vehicles(org_reals[0],org_ints[0])
                 cout=0
                 for i in nodes:

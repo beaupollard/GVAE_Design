@@ -30,6 +30,9 @@ def read_inputs(filename,output):
 
 def input_vectors(edges,nodes,results,terrains,num_bodies=4,num_body_reals=3,num_prop_reals=4,num_joint_reals=4,num_prop_ints=4,num_joint_ints=3):
     data=[]
+    # del edges[220]
+    # del nodes[220]
+    # del results[220]
     for i, edge in enumerate(edges):
         body_reals=np.zeros(num_bodies*num_body_reals)
         prop_reals=np.zeros(num_bodies*num_prop_reals)
@@ -37,6 +40,28 @@ def input_vectors(edges,nodes,results,terrains,num_bodies=4,num_body_reals=3,num
         body_ints=np.zeros(num_bodies-1)
         prop_ints=np.zeros(num_bodies*num_prop_ints)
         joint_ints=np.zeros(num_bodies*num_joint_ints)
+        edge2=[]
+        body_id=0
+        moveon=False
+        count=0
+        while moveon==False:
+            if nodes[i][body_id+1][0]<5:
+                # there is a wheel
+                edge2.append([body_id,body_id+1])
+                edge2.append([body_id,body_id+2])
+                if body_id>0:
+                    edge2.append([body_id-1,body_id])                
+                body_id+=3
+            else:
+                edge2.append([body_id,body_id+1])
+                if body_id>0:
+                    edge2.append([body_id-1,body_id])
+                body_id+=2
+            if body_id+1>len(nodes[i]):
+                moveon=True
+        
+        if np.array_equal(np.array(edge2,dtype=float),edge)==False:
+            edge=np.array(edge2)
         body_id=0
         body_count=0
         moveon=False
@@ -95,20 +120,22 @@ def create_dataset():
     node_files=['nodes_rough','nodes_steps','nodes_slope','nodes_rough_slope']
     edge_files=['edges_rough','edges_steps','edges_slope','edges_rough_slope']
     result_files=['results_rough','results_steps','results_slope','results_rough_slope']
-    terrain_files=['field2_z.npy','stairs_z.npy','slope_z.npy','rough_slope_z.npy']
+    terrain_files=['rough_ze.npy','stairs_ze.npy','slope_ze.npy','rough_slope_ze.npy']
     nodes=[]
     edges=[]
     results=[]
     t_rec=[]
-    terrains=np.zeros((len(terrain_files),128))
+    terrains=np.zeros((len(terrain_files),8))
+    # path='../results/EA_Designs/'
     path='../results/12_10_2023/'
-    for i in range(len(node_files)):
-        terrains[i,:]=np.load(path+terrain_files[i])
+    pre_len=0
+    for i in range(len(node_files)-1):
+        terrains[i,:]=np.load('terrain_npy/'+terrain_files[i])
         if len(nodes)==0:
             nodes=read_inputs(path+node_files[i]+'.txt',[])
             edges=read_inputs(path+edge_files[i]+'.txt',[])
             results=read_inputs(path+result_files[i]+'.txt',[])
-            for j in range(7491):
+            for j in range(len(nodes)):
                 t_rec.append(terrains[i,:])
             
         else:
@@ -118,8 +145,9 @@ def create_dataset():
             nodes=read_inputs(path+node_files[i]+'.txt',nodes)
             edges=read_inputs(path+edge_files[i]+'.txt',edges)
             results=read_inputs(path+result_files[i]+'.txt',results)
-            for j in range(7491):
+            for j in range(len(nodes)-prev_len):
                 t_rec.append(terrains[i,:])
+        prev_len=len(nodes)
 
     return input_vectors(edges,nodes,results,t_rec)
 

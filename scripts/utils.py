@@ -568,7 +568,7 @@ def satisfy_rules(nodes_in):
         if nodes_in[i]['active'][0]>400:
             nodes_in[i]['active']=[1000.,5.]
         elif nodes_in[i]['active'][0]<100:
-            nodes_in[i]['active']=[100.,15.]
+            nodes_in[i]['active']=[300.,15.]
 
     offset_buff=1.35
     ## Check if there is overlap between props ##1/39.37+nodes[i]['length']/2

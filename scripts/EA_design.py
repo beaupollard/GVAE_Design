@@ -49,7 +49,7 @@ def select_terrain():
         final_pos, _, _, b0=env_util.build_gaussian_field_obs(sim)
     return final_pos, b0
 
-terrain = 0
+terrain = 2
 client = RemoteAPIClient()
 sim = client.getObject('sim')
 sim.closeScene()
@@ -93,7 +93,7 @@ for i, nodes_gen in enumerate(pool_nodes):
 # for jj in range(7500):
 mean_fit=[]
 counter=0
-while counter<4000:
+while counter<1000:
     fit_rec=[]
 
     ## Generate crossover designs ##

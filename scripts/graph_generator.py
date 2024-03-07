@@ -12,7 +12,7 @@ def set_length_location(min_x=-100,body_num=4,BLprev=0,bodyw=0,bodyh=0,zloc=0,yl
         body_length=36./body_num/39.37#get_gauss_rand(30./body_num,12,24/body_num,36./body_num)/39.37
         prop_radius=get_gauss_rand(8.,4.,4.,10.)/39.37
 
-        prop_location=[get_gauss_rand(0,5.,-body_length/2,body_length/2)/39.37,bodyw+0.15,-bodyh/2+0.05]#+get_gauss_rand(0.,5,-5,1)/39.37]
+        prop_location=[get_gauss_rand(0,5.,-body_length/2,body_length/2)/39.37,bodyw+0.15,-bodyh/2+get_gauss_rand(0.,5,-5,3)/39.37]
         joint_location=[body_length/2+1/39.37,0,get_gauss_rand(0.,5,-5,5)/39.37]
         R0=BLprev/2+2/39.37+body_length/2
         overlap=R0+prop_location[0]-prop_radius

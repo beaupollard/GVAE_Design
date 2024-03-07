@@ -2,7 +2,7 @@ import numpy as np
 import math
 import copy
 from scipy.spatial.transform import Rotation as R
-from gstools import SRF, Gaussian
+# from gstools import SRF, Gaussian
 import random
 
 def build_steps(sim,num_steps=15,step_height=6.5/39.37,slope=25):
@@ -69,6 +69,52 @@ def build_rough_slope(sim, num=20170519):
     b0.append(sim.createHeightfieldShape(0, 3, num_verts, num_verts, 15, field))
     sim.setObjectQuaternion(b0[-1],b0[-1],[0.,math.sin(slope/2),0.,math.cos(slope/2)])
     sim.setObjectPosition(b0[-1],b0[-1],[-5.5,-0.0,0.15])
+    # sim.setObjectQuaternion(b0[-1],b0[-1],[0.,math.sin(slope/2),0.,math.cos(slope/2)])
+    # sim.setObjectPosition(b0[-1],b0[-1],[0,0,1.1])
+    # b0.append(sim.createHeightfieldShape(0, 3, 256, 256, 15, field))
+    # sim.setObjectPosition(b0[-1],b0[-1],[-3,0,0])
+    Rw=b0[-1]#sim.groupShapes(b0)
+
+    # sim.setShapeColor(b0[-1],'',sim.colorcomponent_ambient_diffuse,[1,1,1])
+    # sim.setShapeColor(b0[-2],'',sim.colorcomponent_ambient_diffuse,[1,1,1])
+
+
+    final_pos = [-12., 0]
+
+    sim.setObjectInt32Param(Rw,sim.shapeintparam_respondable,1)
+    sim.cameraFitToView(0)
+    return final_pos, 0, 0, Rw#b0[0]
+
+def build_rough_slope_walls(sim, num=20170519):
+    num_verts=256
+    x = y = range(num_verts)
+    slope=15*math.pi/180
+    model = Gaussian(dim=2, var=1, len_scale=10)
+    srf = SRF(model, seed=num)
+
+    field = srf.structured([x, y])
+    field = field.tolist()
+
+    field = flatten(field)
+    smallest = min(field)
+    field = list(map(lambda x: x / 10, field))
+    floor_id=sim.getObject('/Floor')
+    sim.setObjectPosition(floor_id,floor_id,[0,-0.0,-10.5])
+    b0 = []
+    b0.append(sim.createHeightfieldShape(0, 3, num_verts, num_verts, 15, field))
+    sim.setObjectQuaternion(b0[-1],b0[-1],[0.,math.sin(slope/2),0.,math.cos(slope/2)])
+    sim.setObjectPosition(b0[-1],b0[-1],[-5.5,-0.0,0.15])
+    w0=[]
+    w0.append(sim.createPrimitiveShape(sim.primitiveshape_cuboid,[1.,10.,0.5]))
+    sim.setObjectPosition(w0[-1],w0[-1],[-1.0,-0.0,0.2])
+
+    w0.append(sim.createPrimitiveShape(sim.primitiveshape_cuboid,[1.,10.,0.5]))
+    sim.setObjectPosition(w0[-1],w0[-1],[-4.0,-0.0,1.0])
+
+    w0.append(sim.createPrimitiveShape(sim.primitiveshape_cuboid,[1.,10.,0.5]))
+    sim.setObjectPosition(w0[-1],w0[-1],[-7.0,-0.0,1.8])
+    for i in w0:
+        sim.setObjectInt32Param(i,sim.shapeintparam_respondable,1)
     # sim.setObjectQuaternion(b0[-1],b0[-1],[0.,math.sin(slope/2),0.,math.cos(slope/2)])
     # sim.setObjectPosition(b0[-1],b0[-1],[0,0,1.1])
     # b0.append(sim.createHeightfieldShape(0, 3, 256, 256, 15, field))

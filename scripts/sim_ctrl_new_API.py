@@ -19,7 +19,10 @@ def steering(sim,body_id,motor_ids,radius,velo,des_angle=0.):
             motor_direction=-1
         else:
             motor_direction=1
-        rot_velo=(velo/60/radius[i])+motor_direction*(eulerAngles[-1]-des_angle)
+        try:
+            rot_velo=(velo/60/radius[i])+motor_direction*(eulerAngles[-1]-des_angle)
+        except:
+            pass
         sim.setJointTargetVelocity(motor.item(),rot_velo)
 
 def end_sim(sim,final_pos,body_id):
@@ -36,8 +39,12 @@ def torque_rec(sim,motor_ids,torque,power):
     tor=[]
     pow=[]
     for i in motor_ids:
-        tor.append(sim.getJointForce(i.item()))
-        pow.append((sim.getJointForce(i.item())*60*sim.getJointVelocity(i.item())/(2*math.pi))/9.5488)
+        try:
+            float(sim.getJointForce(i.item()))
+            tor.append(sim.getJointForce(i.item()))
+            pow.append((sim.getJointForce(i.item())*60*sim.getJointVelocity(i.item())/(2*math.pi))/9.5488)
+        except:
+            pass
     return torque.append(tor), power.append(pow)
 
 def set_radius(nodes):

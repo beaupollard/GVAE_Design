@@ -92,14 +92,15 @@ def input_vectors(edges,nodes,results,terrains,num_bodies=4,num_body_reals=3,num
                 body_count+=1
                 if len(np.where(edge[:,0]==body_id)[0])==0:
                     moveon=True
+        props_on_body=np.sum(prop_ints.reshape((4,-1))[:,1:])
         reals=np.hstack((np.hstack((body_reals,prop_reals)),joint_reals[:(num_bodies-1)*num_joint_reals]))
         body_ints[body_count-2]=1
         ints=np.hstack((np.hstack((body_ints,prop_ints)),joint_ints[:(num_bodies-1)*num_joint_ints]))
         x=torch.tensor(np.hstack((np.hstack((reals,ints)),terrains[i])),dtype=torch.float)
         # x=torch.tensor(np.hstack((reals,ints)),dtype=torch.float)
         out_results=np.zeros((3))
-        out_results[0]=results[i][2]/250.#250,400,275#np.array()
-        out_results[1]=results[i][4]/275#np.array()
+        out_results[0]=props_on_body*results[i][2]/250.#250,400,275#np.array()
+        out_results[1]=props_on_body*results[i][4]/275#np.array()
         out_results[-1]=-results[i][6]/(results[i][1]+0.1)*100/29      
         # out_results[:4]=np.array(results[i][2:6])
         # out_results[-1]=-results[i][6]/(results[i][1]+0.1)*100
@@ -126,10 +127,10 @@ def create_dataset():
     results=[]
     t_rec=[]
     terrains=np.zeros((len(terrain_files),8))
-    # path='../results/EA_Designs/'
-    path='../results/12_10_2023/'
+    path='../results/EA_Designs_nopropz/'
+    # path='../results/12_10_2023/'
     pre_len=0
-    for i in range(len(node_files)-1):
+    for i in range(len(node_files)):
         terrains[i,:]=np.load('terrain_npy/'+terrain_files[i])
         if len(nodes)==0:
             nodes=read_inputs(path+node_files[i]+'.txt',[])

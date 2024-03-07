@@ -12,12 +12,12 @@ import copy
 import math
 
 class VAE(nn.Module):
-    def __init__(self, enc_out_dim=68, latent_dim=16, input_height=68,lr=2e-3,hidden_layers=64,dec_hidden_layers=128,performance_out=3,env_inputs=128,seed=0,ze_dim=8):
+    def __init__(self, enc_out_dim=68, latent_dim=16, input_height=68,lr=2e-3,hidden_layers=64,dec_hidden_layers=128,performance_out=3,env_inputs=128,seed=0,ze_dim=8,cond_p=True):
         super(VAE, self).__init__()
         torch.manual_seed(seed)
         self.reals_weight=1.
         self.ints_weight=1.
-        self.kl_weight=1.
+        self.kl_weight=0.1
         self.perf_weight=1000.
         self.dec_hidden_layers=dec_hidden_layers
         self.lr=lr
@@ -29,8 +29,15 @@ class VAE(nn.Module):
         self.performance_out=performance_out
         decode_perf=performance_out
         input_height+=ze_dim
+        self.cond_p = cond_p
+        if self.cond_p == True:
+            encoder_input=input_height+performance_out
+        else:
+            encoder_input=input_height
+
         self.linear_relu_stack = nn.Sequential(
-            nn.Linear(input_height+performance_out, 2*hidden_layers),
+            nn.Linear(encoder_input, 2*hidden_layers),
+            # nn.Linear(input_height+performance_out, 2*hidden_layers),
             nn.Tanh(),
             nn.Linear(2*hidden_layers, 2*hidden_layers),
             nn.Tanh(),
@@ -231,8 +238,10 @@ class VAE(nn.Module):
             user_weights=torch.div(rand_weights.T,torch.sum(rand_weights,dim=1)).T
             user_weights[:,:-1]*=-1.                 
             # encode x to get the mu and variance parameters
-            # _, mu, std = self.forward(x)
-            _, mu, std = self.forward(torch.cat((x,y),dim=1))
+            if self.cond_p == True:
+                _, mu, std = self.forward(torch.cat((x,y),dim=1))
+            else:
+                _, mu, std = self.forward(x)   
 
             q=torch.distributions.Normal(mu,std)
             z=q.rsample()
@@ -304,8 +313,10 @@ class VAE(nn.Module):
                 user_weights=torch.div(rand_weights.T,torch.sum(rand_weights,dim=1)).T
                 user_weights[:,:-1]*=-1.                 
                 # encode x to get the mu and variance parameters
-                # _, mu, std = self.forward(x)
-                _, mu, std = self.forward(torch.cat((x,y),dim=1))
+                if self.cond_p == True:
+                    _, mu, std = self.forward(torch.cat((x,y),dim=1))
+                else:
+                    _, mu, std = self.forward(x)   
 
                 q=torch.distributions.Normal(mu,std)
                 z=q.rsample()
@@ -354,7 +365,10 @@ class VAE(nn.Module):
                 user_weights[ii,:-1]*=-1.
 
             with torch.no_grad():
-                _, mu, std = self.forward(x)
+                if self.cond_p == True:
+                    _, mu, std = self.forward(torch.cat((x,y),dim=1))
+                else:
+                    _, mu, std = self.forward(x)   
             
             index_rec=[]
             for ii in range(BS):
@@ -368,7 +382,7 @@ class VAE(nn.Module):
             # kl = torch.distributions.kl.kl_divergence(q, torch.distributions.Normal(0.,1.)).sum(1).mean()*self.kl_weight
             mse_L=F.mse_loss(mu[index_rec],zorg)*10
             # kl_loss=
-            loss=mse_L+kl*0.0001
+            loss=mse_L+kl*0.01
             loss.backward()
 
             self.optimizer.step()            
@@ -453,8 +467,10 @@ class VAE(nn.Module):
                 i=ii[0].to(device)
                 y=ii[1].to(device)
                 self.optimizer.zero_grad()
-                _, mu, std = self.forward(torch.cat((i,y),dim=1))
-                # _, mu, std = self.forward(i)
+                if self.cond_p == True:
+                    _, mu, std = self.forward(torch.cat((i,y),dim=1))
+                else:
+                    _, mu, std = self.forward(i)   
 
                 q=torch.distributions.Normal(mu,std)
                 z=q.rsample()
@@ -693,8 +709,10 @@ class VAE(nn.Module):
             with torch.no_grad():
                 x = i[0].to("cpu")
                 y = i[1].to("cpu")
-                _, mu, std = self.forward(torch.cat((x,y),dim=1))
-                # _, mu, std = self.forward(x)            
+                if self.cond_p == True:
+                    _, mu, std = self.forward(torch.cat((x,y),dim=1))
+                else:
+                    _, mu, std = self.forward(x)            
                 ## Split up the batch
                 split_index=[]
                 for i in range(len(x)-1):
@@ -826,6 +844,7 @@ class VAE(nn.Module):
         yin=y[terrain].detach().numpy()
         real_rec=[]
         int_rec=[]
+        org_rec=[]
         torch.manual_seed(seed)
         with torch.no_grad():
             move_on=0
@@ -849,8 +868,9 @@ class VAE(nn.Module):
                 if cout == 0:
                     real_rec.append(org_reals[0])
                     int_rec.append(org_ints[0])
+                    org_rec.append(org_results)
                     move_on+=1
-        return real_rec, int_rec, yin
+        return real_rec, int_rec, yin, org_rec
 
 def create_vehicles(x_reals,x_ints,num_bodies=4,num_body_reals=3,num_prop_reals=4,num_joint_reals=4,num_prop_ints=4,num_joint_ints=3):
     ## Determine the number of bodies ##

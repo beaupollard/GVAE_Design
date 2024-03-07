@@ -67,6 +67,10 @@ def generate_tracks(sim,radius,wheel_base,current_body,jlocation=[0,0,0]):
     ## Determine how many links are needed to surround the drives ##
     linkandjoint_width=2*joint_length
     num_tracks_circ=math.floor(math.pi*(radius+link_height)/linkandjoint_width)
+
+    if num_tracks_circ==0:
+        num_tracks_circ=3
+
     theta=math.pi/num_tracks_circ
     for i in range(num_tracks_circ):
         sim.setObjectQuaternion(track_joints[i],track_joints[i],[0,0,math.sin(theta/2),math.cos(theta/2)])
@@ -133,7 +137,10 @@ def generate_tracks(sim,radius,wheel_base,current_body,jlocation=[0,0,0]):
 
     # sim.setObjectPosition(s0,-1,[midp-length_s+support_size[0],sim.getObjectPosition(Rj0,-1)[1]+0.025,sim.getObjectPosition(Rj0,-1)[2]-radius+support_size[0]/1.5])
     s0=[s0]
-    int_wheels=math.floor(dx/(support_size[0]))
+    if support_size[0]<1:
+        int_wheels=0
+    else:
+        int_wheels=math.floor(dx/(support_size[0]))
     # if int_wheels<=1:
     #     int_wheels=2
     for i in range(int_wheels):
@@ -257,6 +264,8 @@ def build_wheels(sim,radius,current_body,jlocation=[0,0,0],width=0.075):
 
     ## Place Treads on wheel ##
     num_treads=int(0.25*(2*(radius+tread_height/2)*math.pi/tread_length))
+    if num_treads<1:
+        num_treads=4
     theta=np.linspace(0,2*math.pi,num_treads+1)
     lt=tread_height/2+radius
     treads=[]
@@ -646,7 +655,7 @@ def mutation(nodes,fit_func):
                 new_r=np.random.normal(nodes[i][j]['radius'], std, 1)
                 while new_r<4/39.37 or new_r>10/39.37:
                     new_r=np.random.normal(nodes[i][j]['radius'], std, 1)
-                new_z=np.random.normal(nodes[i][j]['location'][2], 3*std, 1)
+                # new_z=np.random.normal(nodes[i][j]['location'][2], 3*std, 1)
                 nodes[i][j]['radius']=copy.copy(new_r.item())
-                nodes[i][j]['location'][2]=copy.copy(new_z.item())
+                # nodes[i][j]['location'][2]=copy.copy(new_z.item())
     return nodes

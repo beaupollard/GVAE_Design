@@ -28,6 +28,17 @@ def build_ters():
     return final_pos, b0
 
 
+
+
+model=VAE(cond_p=False)
+model.to("cpu")
+
+model.load_state_dict(torch.load("../NN/org_p(z|x)_02242024_LD16_condition_1",map_location=torch.device('cpu')))
+d1=torch.load('../NN/CNN_updated_with_EA_rough_slope.pt')
+obj=np.array([[-0.1,-0.1,0.8]]).T
+prev_data=torch.utils.data.DataLoader(d1,batch_size=len(d1), shuffle=False)
+_, x, y, _ = model.split_batch(prev_data)
+
 client = RemoteAPIClient()
 sim = client.getObject('sim')
 sim.closeScene()
@@ -35,9 +46,14 @@ sim_results=[]
 terrain=3
 final_pos, b0=build_ters()
 
-# model=VAE()
-# model.to("cpu")
-# model.load_state_dict(torch.load("../NN/org_model_org011920240",map_location=torch.device('cpu')))
+# nodes, edges = util.create_vehicles(x_reals[i],x_ints[i])
+# num_props=0
+# for j in nodes:
+#     if j['name']=="prop" and j['type']!='none':
+#         num_props+=1        
+# joints, body_id, x_current, edge_current, nodes = utils.build_vehicles(sim,nodes)
+# final_pos, b0=build_ters()
+# success, time_sim, ave_torque, max_torque, ave_power, max_power, pin, ave_vel = main_run(np.array(joints).flatten(),body_id,nodes,final_pos,client,sim)
 
 # # model.load_state_dict(torch.load("../NN/current_model_orgv2",map_location=torch.device('cpu')))
 # d1=torch.load('../NN/data_with_rough_slope.pt')#smd.run_sim(run_nums=2,out_data=2,num_repeats=1)
